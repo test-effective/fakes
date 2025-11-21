@@ -74,6 +74,7 @@
     "@types/node": "^24.10.1",
     "@vitest/browser": "^3.2.0",
     "@vitest/browser-playwright": "^4.0.0",
+    "dotenv": "^17.2.3",
     "eslint": "^9.8.0",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.6.2",
