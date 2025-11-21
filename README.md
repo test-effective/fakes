@@ -2,7 +2,7 @@
 
 > **Faketories** + **Fakepoints** = Less boilerplate, more organized test data 🎭
 
-A powerful testing library that makes creating fake data with [MSW Data](https://mswjs.io/docs/api/data) effortless. Create factories with auto-merged partials and organize test setup code with auto-discovered fakepoints.
+A powerful testing library that makes creating fake data with [MSW Data](https://github.com/mswjs/data) effortless. Create factories with auto-merged partials and organize test setup code with auto-discovered fakepoints.
 
 *No real data was harmed in the making of this library.*
 
