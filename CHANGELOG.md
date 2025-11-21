@@ -1,5 +1,11 @@
 # @test-effective/fakes
 
+## 0.0.2
+
+### Patch Changes
+
+- ✨ renamed `setupFakepoints` to `runAllFakepoints` (by [@shairez](https://github.com/shairez) in [`0aa8a32`](https://github.com/test-effective/fakes/commit/0aa8a329e00324e253ec00ed833a01f0d83556d0))
+
 ## 0.0.1
 
 ### Patch Changes
