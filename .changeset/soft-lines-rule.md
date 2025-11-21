@@ -2,4 +2,4 @@
 '@test-effective/fakes': patch
 ---
 
-FEAT: create the library 
+FEAT: added fakepoints and faketories
