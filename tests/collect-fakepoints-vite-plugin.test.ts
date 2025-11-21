@@ -28,7 +28,7 @@ THEN fakepoints are collected, registered, and can be executed`, async () => {
       const setupFile = path.join(demoProjectRoot, 'tests-setup.ts');
       await server.ssrLoadModule(setupFile);
 
-      // Import setupFakepoints from the registry
+      // Import runAllFakepoints from the registry
       // This ensures we're using the same registry instance that the fakepoints registered with
       const registryModule = await server.ssrLoadModule(
         path.resolve(
@@ -38,8 +38,8 @@ THEN fakepoints are collected, registered, and can be executed`, async () => {
           'fakepoints-registry.ts',
         ),
       );
-      const { setupFakepoints } = registryModule as {
-        setupFakepoints: (debug?: boolean) => void;
+      const { runAllFakepoints } = registryModule as {
+        runAllFakepoints: (debug?: boolean) => void;
       };
 
       // Capture console.log to verify fakepoints executed
@@ -51,9 +51,9 @@ THEN fakepoints are collected, registered, and can be executed`, async () => {
       };
 
       try {
-        // Now call setupFakepoints (like users would in beforeAll)
+        // Now call runAllFakepoints (like users would in beforeAll)
         // This should execute all registered fakepoints
-        setupFakepoints();
+        runAllFakepoints();
 
         // Verify that fakepoints were registered and executed
         // The demo-project fakepoints log messages when executed

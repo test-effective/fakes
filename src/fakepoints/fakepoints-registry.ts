@@ -4,9 +4,12 @@ export function registerFakepoints(fakepointsFn: () => void) {
   fakepointsToRun.push(fakepointsFn);
 }
 
-export function setupFakepoints(debug: boolean = false) {
+export function runAllFakepoints(debug: boolean = false) {
   if (debug) {
-    console.log('🔄 Amount of fakepoints to setup: ', fakepointsToRun.length);
+    console.log(
+      '🔄 Amount of fakepoints files to run: ',
+      fakepointsToRun.length,
+    );
   }
   fakepointsToRun.forEach(fakepointsFn => fakepointsFn());
 }

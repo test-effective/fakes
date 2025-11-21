@@ -214,7 +214,7 @@ Instead of manually importing MSW handlers across your test files, fakepoints au
 
 1. You create `.fakepoints.ts` files and use the `registerFakepoints()` function to register your fake endpoints.
 2. The Vite plugin scans your workspace for all `.fakepoints.ts` files and creates a virtual module `collected-fakepoints` that imports them all.
-3. When you call `setupFakepoints()`, all registered functions run.
+3. When you call `runAllFakepoints()`, all registered functions run.
 
 **Use cases:**
 - Registering MSW handlers
@@ -267,11 +267,11 @@ registerFakepoints(() => {
 ```typescript
 // tests-setup.ts
 import 'collected-fakepoints'; // Auto-imports all .fakepoints.ts files
-import { setupFakepoints } from '@test-effective/fakes';
+import { runAllFakepoints } from '@test-effective/fakes';
 import { beforeAll } from 'vitest';
 
 beforeAll(() => {
-  setupFakepoints(); // Runs all registered fakepoints
+  runAllFakepoints(); // Runs all registered fakepoints
 });
 ```
 
