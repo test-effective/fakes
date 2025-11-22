@@ -9,7 +9,7 @@ A powerful testing library that makes creating fake data with [MSW Data](https:/
 ## Requirements
 
 - `@msw/data` `^1.0.0` (peer dependency)
-- Vite (for fakepoints plugin)
+- Vite (if you're using the fakepoints plugin)
 
 ## Installation
 
