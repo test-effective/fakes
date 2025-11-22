@@ -1,6 +1,11 @@
-# Test Effective Fakes
+<div align="center">
+<h1>Test Effective Fakes</h1>
 
-> **Faketories** + **Fakepoints** = Less boilerplate, more organized test data 🎭
+
+
+
+**Fake DB for UI Component Tests** 🎭
+</div>
 
 A powerful testing library that makes creating fake data with [MSW Data](https://github.com/mswjs/data) effortless. Create factories with auto-merged partials and organize test setup code with auto-discovered fakepoints.
 
