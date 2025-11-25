@@ -27,7 +27,9 @@ pnpm install -D @test-effective/fakes @msw/data
 Faketories are factories for generating fake test data.
 Basically, "factories of fakes"... "Faketories"... I know, bad pun 😅.
 
- They provide two methods: `create()` (standalone entities) and `seed()` (entities stored in your MSW Data collection).
+They provide four methods:
+- `createOne()` / `createMany()` - Generate standalone entities (not stored in DB)
+- `seedOne()` / `seedMany()` - Generate and store entities in your MSW Data collection
 
 
 ### Quick Start
@@ -59,7 +61,7 @@ const userFaketory = createFaketory(userCollection, async ({ partial }) => {
 });
 
 // Use it in tests
-const user = await userFaketory.seed({ email: 'test@example.com' });
+const user = await userFaketory.seedOne({ email: 'test@example.com' });
 ```
 
 
@@ -82,47 +84,59 @@ const userFaketory = createFaketory(
 ```
 
 **Props available in your faketory function:**
-- `partial` - Override values passed to `create()` or `seed()`
-- `seedingMode` - `true` when called via `seed()`, `false` for `create()`
-- `index` - Index when creating multiple entities (0, 1, 2...)
+- `partial` - Override values passed to `createOne()`, `createMany()`, `seedOne()`, or `seedMany()`
+- `seedingMode` - `true` when called via `seedOne()`/`seedMany()`, `false` for `createOne()`/`createMany()`
+- `index` - Index when creating entities (0 for single, 0-N for multiple)
 
-### The `create()` Method
+### The `createOne()` Method
 
-Creates standalone entities (not stored in the fake DB):
+Creates a single standalone entity (not stored in the fake DB):
 
 ```typescript
 // Single entity with defaults
-const user = await userFaketory.create();
+const user = await userFaketory.createOne();
 
 // Single entity with overrides (auto-merged!)
-const admin = await userFaketory.create({ email: 'admin@example.com' });
+const admin = await userFaketory.createOne({ email: 'admin@example.com' });
+```
 
-// Multiple entities (array)
-const users = await userFaketory.create(5);
+### The `createMany()` Method
 
-// Multiple entities with custom data (auto-merged!)
-const users = await userFaketory.create([
+Creates multiple standalone entities (not stored in the fake DB):
+
+```typescript
+// Multiple entities (returns array)
+const users = await userFaketory.createMany(5);
+
+// Multiple entities with custom data (returns array, auto-merged!)
+const users = await userFaketory.createMany([
   { email: 'one@example.com' },
   { email: 'two@example.com' },
 ]);
 ```
 
-### The `seed()` Method
+### The `seedOne()` Method
 
-Creates and **stores** entities in your MSW Data collection. This one actually commits to the fake DB:
+Creates and **stores** a single entity in your MSW Data collection:
 
 ```typescript
 // Single entity (returns T)
-const user = await userFaketory.seed();
+const user = await userFaketory.seedOne();
 
 // Single entity with overrides (returns T, auto-merged!)
-const admin = await userFaketory.seed({ email: 'admin@example.com' });
+const admin = await userFaketory.seedOne({ email: 'admin@example.com' });
+```
 
+### The `seedMany()` Method
+
+Creates and **stores** multiple entities in your MSW Data collection:
+
+```typescript
 // Multiple entities (returns T[])
-const users = await userFaketory.seed(10);
+const users = await userFaketory.seedMany(10);
 
 // Multiple entities with custom data (returns T[], auto-merged!)
-const users = await userFaketory.seed([
+const users = await userFaketory.seedMany([
   { email: 'one@example.com' },
   { email: 'two@example.com' },
 ]);
