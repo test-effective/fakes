@@ -35,11 +35,11 @@ function setup() {
 }
 
 describe('createFaketory', () => {
-  describe('create()', () => {
+  describe('createOne()', () => {
     test(`GIVEN no arguments,
            THEN creates one entity with defaults`, async () => {
       const { userFaketory } = setup();
-      const user = await userFaketory.create();
+      const user = await userFaketory.createOne();
 
       expect(user).toHaveProperty('id');
       expect(user).toHaveProperty('email');
@@ -53,18 +53,20 @@ describe('createFaketory', () => {
            THEN creates entity with merged partial data`, async () => {
       const { userFaketory } = setup();
       const partial = { email: 'test@example.com', name: 'Test User' };
-      const user = await userFaketory.create(partial);
+      const user = await userFaketory.createOne(partial);
 
       expect(user.email).toBe('test@example.com');
       expect(user.name).toBe('Test User');
       expect(user).toHaveProperty('id');
       expect(typeof user.id).toBe('number');
     });
+  });
 
+  describe('createMany()', () => {
     test(`GIVEN count number,
            THEN creates array of entities`, async () => {
       const { userFaketory } = setup();
-      const users = await userFaketory.create(5);
+      const users = await userFaketory.createMany(5);
 
       expect(Array.isArray(users)).toBe(true);
       expect(users).toHaveLength(5);
@@ -84,7 +86,7 @@ describe('createFaketory', () => {
         { email: 'first@example.com' },
         { email: 'second@example.com', name: 'Second User' },
       ];
-      const users = await userFaketory.create(partials);
+      const users = await userFaketory.createMany(partials);
 
       expect(Array.isArray(users)).toBe(true);
       expect(users).toHaveLength(2);
@@ -95,22 +97,22 @@ describe('createFaketory', () => {
       expect(users[1]).toHaveProperty('id');
     });
 
-    test(`GIVEN create() is called,
+    test(`GIVEN createOne() and createMany() are called,
            THEN entities are NOT stored in collection`, async () => {
       const { userStore, userFaketory } = setup();
-      await userFaketory.create();
-      await userFaketory.create(3);
+      await userFaketory.createOne();
+      await userFaketory.createMany(3);
 
       const allUsers = userStore.findMany();
       expect(allUsers).toHaveLength(0);
     });
   });
 
-  describe('seed()', () => {
+  describe('seedOne()', () => {
     test(`GIVEN no arguments,
            THEN seeds one entity and returns it`, async () => {
       const { userStore, userFaketory } = setup();
-      const user = await userFaketory.seed();
+      const user = await userFaketory.seedOne();
 
       expect(user).toHaveProperty('id');
       expect(user).toHaveProperty('email');
@@ -125,7 +127,7 @@ describe('createFaketory', () => {
            THEN seeds entity with merged partial and returns it`, async () => {
       const { userStore, userFaketory } = setup();
       const partial = { email: 'seeded@example.com', name: 'Seeded User' };
-      const user = await userFaketory.seed(partial);
+      const user = await userFaketory.seedOne(partial);
 
       expect(user.email).toBe('seeded@example.com');
       expect(user.name).toBe('Seeded User');
@@ -135,11 +137,13 @@ describe('createFaketory', () => {
       expect(allUsers).toHaveLength(1);
       expect(allUsers[0].email).toBe('seeded@example.com');
     });
+  });
 
+  describe('seedMany()', () => {
     test(`GIVEN count number,
            THEN seeds multiple entities and returns array`, async () => {
       const { userStore, userFaketory } = setup();
-      const users = await userFaketory.seed(5);
+      const users = await userFaketory.seedMany(5);
 
       expect(Array.isArray(users)).toBe(true);
       expect(users).toHaveLength(5);
@@ -160,7 +164,7 @@ describe('createFaketory', () => {
         { email: 'second@example.com', name: 'Second' },
         { id: 100, email: 'third@example.com' },
       ];
-      const users = await userFaketory.seed(partials);
+      const users = await userFaketory.seedMany(partials);
 
       expect(Array.isArray(users)).toBe(true);
       expect(users).toHaveLength(3);
@@ -174,12 +178,12 @@ describe('createFaketory', () => {
       expect(allUsers[2].email).toBe('third@example.com');
     });
 
-    test(`GIVEN seed() is called multiple times,
+    test(`GIVEN seedOne() and seedMany() are called multiple times,
            THEN all entities are stored`, async () => {
       const { userStore, userFaketory } = setup();
-      await userFaketory.seed();
-      await userFaketory.seed({ email: 'second@example.com' });
-      await userFaketory.seed(3);
+      await userFaketory.seedOne();
+      await userFaketory.seedOne({ email: 'second@example.com' });
+      await userFaketory.seedMany(3);
 
       const allUsers = userStore.findMany();
       expect(allUsers).toHaveLength(5); // 1 + 1 + 3
@@ -190,7 +194,7 @@ describe('createFaketory', () => {
     test(`GIVEN entities seeded,
            THEN collection is cleared`, async () => {
       const { userStore, userFaketory } = setup();
-      await userFaketory.seed(5);
+      await userFaketory.seedMany(5);
       expect(userStore.findMany()).toHaveLength(5);
 
       userFaketory.reset();
@@ -211,8 +215,8 @@ describe('createFaketory', () => {
         title: 'Test Post',
       }));
 
-      await userFaketory.seed(3);
-      await postFaketory.seed(2);
+      await userFaketory.seedMany(3);
+      await postFaketory.seedMany(2);
 
       expect(userStore.findMany()).toHaveLength(3);
       expect(postStore.findMany()).toHaveLength(2);
@@ -228,7 +232,7 @@ describe('createFaketory', () => {
     test(`GIVEN store accessed,
            THEN can use all Collection methods`, async () => {
       const { userFaketory } = setup();
-      await userFaketory.seed([
+      await userFaketory.seedMany([
         { id: 1, email: 'one@example.com' },
         { id: 2, email: 'two@example.com' },
         { id: 3, email: 'three@example.com' },
@@ -246,41 +250,47 @@ describe('createFaketory', () => {
   });
 
   describe('EntityFaketory props', () => {
-    test(`GIVEN create() called,
-           THEN seedingMode is false`, async () => {
+    test(`GIVEN createOne() called,
+           THEN seedingMode is false and index is 0`, async () => {
       let receivedSeedingMode = true;
+      let receivedIndex: number | undefined = undefined;
       const testStore = new Collection({ schema: userSchema });
       const testFaketory = createFaketory(
         testStore,
-        async ({ seedingMode }) => {
+        async ({ seedingMode, index }) => {
           receivedSeedingMode = seedingMode;
+          receivedIndex = index;
           return { id: 1, email: 'test@example.com', name: 'Test' };
         },
       );
 
-      await testFaketory.create();
+      await testFaketory.createOne();
 
       expect(receivedSeedingMode).toBe(false);
+      expect(receivedIndex).toBe(0);
     });
 
-    test(`GIVEN seed() called,
-           THEN seedingMode is true`, async () => {
+    test(`GIVEN seedOne() called,
+           THEN seedingMode is true and index is 0`, async () => {
       let receivedSeedingMode = false;
+      let receivedIndex: number | undefined = undefined;
       const testStore = new Collection({ schema: userSchema });
       const testFaketory = createFaketory(
         testStore,
-        async ({ seedingMode }) => {
+        async ({ seedingMode, index }) => {
           receivedSeedingMode = seedingMode;
+          receivedIndex = index;
           return { id: 1, email: 'test@example.com', name: 'Test' };
         },
       );
 
-      await testFaketory.seed();
+      await testFaketory.seedOne();
 
       expect(receivedSeedingMode).toBe(true);
+      expect(receivedIndex).toBe(0);
     });
 
-    test(`GIVEN create(count) called,
+    test(`GIVEN createMany(count) called,
            THEN index is passed to faketory`, async () => {
       const receivedIndexes: number[] = [];
       const testStore = new Collection({ schema: userSchema });
@@ -295,12 +305,12 @@ describe('createFaketory', () => {
         };
       });
 
-      await testFaketory.create(5);
+      await testFaketory.createMany(5);
 
       expect(receivedIndexes).toEqual([0, 1, 2, 3, 4]);
     });
 
-    test(`GIVEN seed(count) called,
+    test(`GIVEN seedMany(count) called,
            THEN index is passed to faketory`, async () => {
       const receivedIndexes: number[] = [];
       const testStore = new Collection({ schema: userSchema });
@@ -315,12 +325,12 @@ describe('createFaketory', () => {
         };
       });
 
-      await testFaketory.seed(5);
+      await testFaketory.seedMany(5);
 
       expect(receivedIndexes).toEqual([0, 1, 2, 3, 4]);
     });
 
-    test(`GIVEN create(partials[]) called,
+    test(`GIVEN createMany(partials[]) called,
            THEN index is passed to faketory`, async () => {
       const receivedIndexes: number[] = [];
       const testStore = new Collection({ schema: userSchema });
@@ -335,7 +345,7 @@ describe('createFaketory', () => {
         };
       });
 
-      await testFaketory.create([
+      await testFaketory.createMany([
         { email: 'one@example.com' },
         { email: 'two@example.com' },
         { email: 'three@example.com' },
@@ -344,7 +354,7 @@ describe('createFaketory', () => {
       expect(receivedIndexes).toEqual([0, 1, 2]);
     });
 
-    test(`GIVEN seed(partials[]) called,
+    test(`GIVEN seedMany(partials[]) called,
            THEN index is passed to faketory`, async () => {
       const receivedIndexes: number[] = [];
       const testStore = new Collection({ schema: userSchema });
@@ -359,13 +369,41 @@ describe('createFaketory', () => {
         };
       });
 
-      await testFaketory.seed([
+      await testFaketory.seedMany([
         { email: 'one@example.com' },
         { email: 'two@example.com' },
         { email: 'three@example.com' },
       ]);
 
       expect(receivedIndexes).toEqual([0, 1, 2]);
+    });
+
+    test(`GIVEN createOne() with index-based ID calculation,
+           THEN ID is calculated correctly (not NaN)`, async () => {
+      const testStore = new Collection({ schema: userSchema });
+      const testFaketory = createFaketory(testStore, async ({ index }) => ({
+        id: (index ?? 0) + 1, // Common pattern: index-based IDs
+        email: 'test@example.com',
+        name: 'Test',
+      }));
+
+      const user = await testFaketory.createOne();
+
+      expect(user.id).toBe(1); // Should be 1 (0 + 1), not NaN
+    });
+
+    test(`GIVEN seedOne() with index-based ID calculation,
+           THEN ID is calculated correctly (not NaN)`, async () => {
+      const testStore = new Collection({ schema: userSchema });
+      const testFaketory = createFaketory(testStore, async ({ index }) => ({
+        id: (index ?? 0) + 1, // Common pattern: index-based IDs
+        email: 'test@example.com',
+        name: 'Test',
+      }));
+
+      const user = await testFaketory.seedOne();
+
+      expect(user.id).toBe(1); // Should be 1 (0 + 1), not NaN
     });
   });
 
@@ -408,8 +446,8 @@ describe('createFaketory', () => {
         async ({ seedingMode }) => {
           const participantCount = 2;
           const fakeParticipants = seedingMode
-            ? await participantFaketory.seed(participantCount)
-            : await participantFaketory.create(participantCount);
+            ? await participantFaketory.seedMany(participantCount)
+            : await participantFaketory.createMany(participantCount);
 
           return {
             id: faker.string.uuid(),
@@ -420,7 +458,7 @@ describe('createFaketory', () => {
       );
 
       // Seed a conversation (seedingMode should be true)
-      const conversation = await conversationFaketory.seed();
+      const conversation = await conversationFaketory.seedOne();
 
       // Verify conversation was created
       expect(conversation).toBeTruthy();
@@ -471,8 +509,8 @@ describe('createFaketory', () => {
         async ({ seedingMode }) => {
           const participantCount = 2;
           const fakeParticipants = seedingMode
-            ? await participantFaketory.seed(participantCount)
-            : await participantFaketory.create(participantCount);
+            ? await participantFaketory.seedMany(participantCount)
+            : await participantFaketory.createMany(participantCount);
 
           return {
             id: faker.string.uuid(),
@@ -483,7 +521,7 @@ describe('createFaketory', () => {
       );
 
       // Create a conversation (seedingMode should be false)
-      const conversation = await conversationFaketory.create();
+      const conversation = await conversationFaketory.createOne();
 
       // Verify conversation was created
       expect(conversation).toBeTruthy();
@@ -510,7 +548,7 @@ describe('createFaketory', () => {
         };
       });
 
-      const user = await testFaketory.create({
+      const user = await testFaketory.createOne({
         id: 999,
         email: 'custom@example.com',
       });
@@ -546,8 +584,8 @@ describe('resetAllFaketories', () => {
       title: 'Test Post',
     }));
 
-    await userFaketory.seed(3);
-    await postFaketory.seed(2);
+    await userFaketory.seedMany(3);
+    await postFaketory.seedMany(2);
 
     expect(userStore.findMany()).toHaveLength(3);
     expect(postStore.findMany()).toHaveLength(2);

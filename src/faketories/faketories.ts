@@ -2,22 +2,26 @@ import type { Collection } from '@msw/data';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 
 /**
- * Creates a factory object with create() and seed() methods for generating fake data.
+ * Creates a factory object with createOne/createMany and seedOne/seedMany methods for generating fake data.
  *
  * @template T - The entity type
  * @template Schema - The schema type (StandardSchemaV1)
  *
- * **create()** - Generates standalone entities (not stored in DB)
- * - `create()` - Creates one entity with all defaults
- * - `create(partial)` - Creates one entity merging partial with defaults (auto-merged!)
- * - `create(count)` - Creates N entities with defaults (index passed to faketory)
- * - `create(partials[])` - Creates entities merging each partial with defaults (auto-merged!)
+ * **createOne()** - Generates a single standalone entity (not stored in DB)
+ * - `createOne()` - Creates one entity with all defaults
+ * - `createOne(partial)` - Creates one entity merging partial with defaults (auto-merged!)
  *
- * **seed()** - Inserts entities into the collection (DB)
- * - `seed()` - Creates and stores 1 entity in DB (returns single entity)
- * - `seed(partial)` - Creates and stores 1 entity with partial data in DB (returns single entity, auto-merged!)
- * - `seed(count)` - Creates and stores N entities in DB (returns array)
- * - `seed(partials[])` - Creates and stores entities with partial data merged (returns array, auto-merged!)
+ * **createMany()** - Generates multiple standalone entities (not stored in DB)
+ * - `createMany(count)` - Creates N entities with defaults (index passed to faketory)
+ * - `createMany(partials[])` - Creates entities merging each partial with defaults (auto-merged!)
+ *
+ * **seedOne()** - Creates and inserts a single entity into the collection (DB)
+ * - `seedOne()` - Creates and stores 1 entity in DB (returns single entity)
+ * - `seedOne(partial)` - Creates and stores 1 entity with partial data in DB (auto-merged!)
+ *
+ * **seedMany()** - Creates and inserts multiple entities into the collection (DB)
+ * - `seedMany(count)` - Creates and stores N entities in DB (returns array)
+ * - `seedMany(partials[])` - Creates and stores entities with partial data merged (returns array, auto-merged!)
  *
  * **store** - Direct access to the MSW Data collection for queries and updates
  * - Use `store.findMany()`, `store.findFirst()`, `store.update()`, etc.
@@ -37,15 +41,16 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
  * });
  *
  * // Create standalone (not in DB)
- * const msg = await messageFaketory.create();
- * const msgs = await messageFaketory.create(5);
- * const customMsg = await messageFaketory.create({ content: 'Custom' }); // ✅ Auto-merged!
+ * const msg = await messageFaketory.createOne();
+ * const customMsg = await messageFaketory.createOne({ content: 'Custom' }); // ✅ Auto-merged!
+ * const msgs = await messageFaketory.createMany(5);
+ * const msgs = await messageFaketory.createMany([{ content: 'First' }, { content: 'Second' }]);
  *
  * // Seed into DB
- * const msg = await messageFaketory.seed(); // seeds 1 entity, returns T
- * const msg = await messageFaketory.seed({ content: 'Custom' }); // ✅ Auto-merged!
- * const msgs = await messageFaketory.seed(10); // seeds 10 entities, returns T[]
- * const msgs = await messageFaketory.seed([{ content: 'First' }, { content: 'Second' }]); // ✅ Auto-merged!
+ * const msg = await messageFaketory.seedOne(); // seeds 1 entity, returns T
+ * const msg = await messageFaketory.seedOne({ content: 'Custom' }); // ✅ Auto-merged!
+ * const msgs = await messageFaketory.seedMany(10); // seeds 10 entities, returns T[]
+ * const msgs = await messageFaketory.seedMany([{ content: 'First' }, { content: 'Second' }]); // ✅ Auto-merged!
  *
  * // Query the store directly
  * const messages = messageFaketory.store.findMany();
@@ -56,17 +61,15 @@ export interface Faketory<
   T,
   Schema extends StandardSchemaV1 = StandardSchemaV1,
 > {
-  create(): Promise<T>;
-  create(partial: Partial<T>): Promise<T>;
-  create(count: number): Promise<T[]>;
-  create(partials: Partial<T>[]): Promise<T[]>;
-  create(input?: number | Partial<T> | Partial<T>[]): Promise<T | T[]>;
+  createOne(partial?: Partial<T>): Promise<T>;
+  createMany(count: number): Promise<T[]>;
+  createMany(partials: Partial<T>[]): Promise<T[]>;
+  createMany(input: number | Partial<T>[]): Promise<T[]>;
 
-  seed(): Promise<T>;
-  seed(partial: Partial<T>): Promise<T>;
-  seed(count: number): Promise<T[]>;
-  seed(partials: Partial<T>[]): Promise<T[]>;
-  seed(input?: number | Partial<T> | Partial<T>[]): Promise<T | T[]>;
+  seedOne(partial?: Partial<T>): Promise<T>;
+  seedMany(count: number): Promise<T[]>;
+  seedMany(partials: Partial<T>[]): Promise<T[]>;
+  seedMany(input: number | Partial<T>[]): Promise<T[]>;
 
   reset(): void;
 
@@ -96,9 +99,8 @@ export type EntityFaketory<T> = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const createdFaketories: Faketory<unknown, any>[] = [];
 
-type InferSchemaOutput<Schema> = Schema extends StandardSchemaV1<infer T>
-  ? T
-  : never;
+type InferSchemaOutput<Schema> =
+  Schema extends StandardSchemaV1<infer T> ? T : never;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createFaketory<Schema extends StandardSchemaV1<any>>(
@@ -115,27 +117,30 @@ export function createFaketory<Schema extends StandardSchemaV1<any>>(
   };
 
   /**
-   * Creates standalone entities (not stored in DB)
+   * Creates a single standalone entity (not stored in DB)
    */
-  async function create(): Promise<InferSchemaOutput<Schema>>;
-  async function create(
-    partial: Partial<InferSchemaOutput<Schema>>,
-  ): Promise<InferSchemaOutput<Schema>>;
-  async function create(count: number): Promise<InferSchemaOutput<Schema>[]>;
-  async function create(
+  async function createOne(
+    partial?: Partial<InferSchemaOutput<Schema>>,
+  ): Promise<InferSchemaOutput<Schema>> {
+    return await wrappedEntityFaketory({
+      seedingMode: false,
+      partial,
+      index: 0,
+    });
+  }
+
+  /**
+   * Creates multiple standalone entities (not stored in DB)
+   */
+  async function createMany(
+    count: number,
+  ): Promise<InferSchemaOutput<Schema>[]>;
+  async function createMany(
     partials: Partial<InferSchemaOutput<Schema>>[],
   ): Promise<InferSchemaOutput<Schema>[]>;
-  async function create(
-    input?:
-      | number
-      | Partial<InferSchemaOutput<Schema>>
-      | Partial<InferSchemaOutput<Schema>>[],
-  ): Promise<InferSchemaOutput<Schema> | InferSchemaOutput<Schema>[]> {
-    // No input - create one with defaults
-    if (input === undefined) {
-      return await wrappedEntityFaketory({ seedingMode: false });
-    }
-
+  async function createMany(
+    input: number | Partial<InferSchemaOutput<Schema>>[],
+  ): Promise<InferSchemaOutput<Schema>[]> {
     // Number - create N entities (pass index to each)
     if (typeof input === 'number') {
       return await Promise.all(
@@ -146,55 +151,37 @@ export function createFaketory<Schema extends StandardSchemaV1<any>>(
     }
 
     // Array - create entities with partials (pass index to each)
-    if (Array.isArray(input)) {
-      return await Promise.all(
-        input.map((partial, index) =>
-          wrappedEntityFaketory({ seedingMode: false, partial, index }),
-        ),
-      );
-    }
-
-    // Single partial object
-    return await wrappedEntityFaketory({ seedingMode: false, partial: input });
+    return await Promise.all(
+      input.map((partial, index) =>
+        wrappedEntityFaketory({ seedingMode: false, partial, index }),
+      ),
+    );
   }
 
   /**
-   * Seeds entities into the collection (DB)
+   * Creates and seeds a single entity into the collection (DB)
    */
-  async function seed(): Promise<InferSchemaOutput<Schema>>;
-  async function seed(
-    partial: Partial<InferSchemaOutput<Schema>>,
-  ): Promise<InferSchemaOutput<Schema>>;
-  async function seed(count: number): Promise<InferSchemaOutput<Schema>[]>;
-  async function seed(
+  async function seedOne(
+    partial?: Partial<InferSchemaOutput<Schema>>,
+  ): Promise<InferSchemaOutput<Schema>> {
+    return await fakeDbCollection.create(
+      await wrappedEntityFaketory({ seedingMode: true, partial, index: 0 }),
+    );
+  }
+
+  /**
+   * Creates and seeds multiple entities into the collection (DB)
+   */
+  async function seedMany(count: number): Promise<InferSchemaOutput<Schema>[]>;
+  async function seedMany(
     partials: Partial<InferSchemaOutput<Schema>>[],
   ): Promise<InferSchemaOutput<Schema>[]>;
-  async function seed(
-    input?:
-      | number
-      | Partial<InferSchemaOutput<Schema>>
-      | Partial<InferSchemaOutput<Schema>>[],
-  ): Promise<InferSchemaOutput<Schema> | InferSchemaOutput<Schema>[]> {
-    // Determine count and partials array
-    let count = 1;
-    let partials: Array<Partial<InferSchemaOutput<Schema>> | undefined> = [
-      undefined,
-    ];
-
-    if (input === undefined) {
-      count = 1;
-      partials = [undefined];
-    } else if (typeof input === 'number') {
-      count = input;
-      partials = Array(count).fill(undefined);
-    } else if (Array.isArray(input)) {
-      count = input.length;
-      partials = input;
-    } else {
-      // Single partial object
-      count = 1;
-      partials = [input];
-    }
+  async function seedMany(
+    input: number | Partial<InferSchemaOutput<Schema>>[],
+  ): Promise<InferSchemaOutput<Schema>[]> {
+    const count = typeof input === 'number' ? input : input.length;
+    const partials: Array<Partial<InferSchemaOutput<Schema>> | undefined> =
+      typeof input === 'number' ? Array(count).fill(undefined) : input;
 
     const entities: InferSchemaOutput<Schema>[] = [];
     for (let index = 0; index < count; index++) {
@@ -206,7 +193,7 @@ export function createFaketory<Schema extends StandardSchemaV1<any>>(
       );
     }
 
-    return count === 1 ? entities[0] : entities;
+    return entities;
   }
 
   function reset(): void {
@@ -214,8 +201,10 @@ export function createFaketory<Schema extends StandardSchemaV1<any>>(
   }
 
   const faketory: Faketory<InferSchemaOutput<Schema>, Schema> = {
-    create,
-    seed,
+    createOne,
+    createMany,
+    seedOne,
+    seedMany,
     reset,
     store: fakeDbCollection,
   };
