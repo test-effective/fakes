@@ -167,7 +167,11 @@ const faketory = createFaketory(collection, async ({ partial }) => {
 
 ### Direct Store Access
 
-Need to query or update your fake data? No problem! Access the MSW Data collection directly (it's like having a backdoor to your fake DB 🚪):
+Need to query or update your fake data? No problem! Access the MSW Data collection directly via the `store` property.
+
+**Why "store"?** Honestly? Because `store` is shorter than `collection`. 😅 and reads better in code: `userFaketory.store.findMany()` vs `userFaketory.collection.findMany()`.
+
+Under the hood, `store` is the MSW Data `Collection` instance, giving you full access to all its methods:
 
 ```typescript
 // Query all users

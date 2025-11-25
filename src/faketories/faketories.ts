@@ -76,6 +76,8 @@ export interface Faketory<
   /**
    * Direct access to the MSW Data collection for this entity.
    *
+   * Named `store` because it's shorter than `collection` and reads better in code.
+   *
    * Use for queries, updates, and direct data manipulation in tests:
    * - `store.findMany()` - Query multiple entities
    * - `store.findFirst()` - Find single entity
