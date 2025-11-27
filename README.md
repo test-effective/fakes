@@ -298,6 +298,39 @@ beforeAll(() => {
 });
 ```
 
+### Collecting Values from Fakepoints
+
+Fakepoints can also return values that are collected when you call `runAllFakepoints()`. This is especially useful for collecting provider arrays (like in Angular), configuration objects, or any other test setup data that needs to be gathered from multiple files.
+
+#### Basic Example - Collecting Values
+
+```typescript
+// src/users/user.fakepoints.ts
+import { registerFakepoints } from '@test-effective/fakes';
+
+registerFakepoints(() => {
+  return { module: 'users', handlers: 3 };
+});
+```
+
+```typescript
+// src/posts/post.fakepoints.ts
+import { registerFakepoints } from '@test-effective/fakes';
+
+registerFakepoints(() => {
+  return { module: 'posts', handlers: 2 };
+});
+```
+
+```typescript
+// tests-setup.ts
+import 'collected-fakepoints';
+import { runAllFakepoints } from '@test-effective/fakes';
+
+type ModuleInfo = { module: string; handlers: number };
+const modules = runAllFakepoints<ModuleInfo>();
+// Result: [{ module: 'users', handlers: 3 }, { module: 'posts', handlers: 2 }]
+```
 ## Contributing
 
 Want to contribute? Yayy! 🎉
