@@ -1,5 +1,11 @@
 # @test-effective/fakes
 
+## 0.0.4
+
+### Patch Changes
+
+- ✨ fakepoints can now return values which end up as an array in `runAllFakepoints` (by [@shairez](https://github.com/shairez) in [`38118ca`](https://github.com/test-effective/fakes/commit/38118ca15b8185a3f71a3af1e3aaa1009af42941))
+
 ## 0.0.3
 
 ### Patch Changes
