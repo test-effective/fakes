@@ -1,5 +1,28 @@
 # @test-effective/fakes
 
+## 0.1.0
+
+### Minor Changes
+
+- ✨ `createOne` and `createMany` are now `generateOne` and `generateMany` (by [@shairez](https://github.com/shairez) in [#5](https://github.com/test-effective/fakes/pull/5))
+
+  The reason for this change is because `create` is a method on the store that actually saves the created entity to the fake db table. So to avoid these overloaded terms, `generate` was chosen instead.
+
+  ### Migration
+
+  Replace method calls:
+
+  ```typescript
+  // Before
+  await faketory.createOne();
+  await faketory.createMany(5);
+
+  // After
+
+  await faketory.generateOne();
+  await faketory.generateMany(5);
+  ```
+
 ## 0.0.4
 
 ### Patch Changes
