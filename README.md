@@ -28,7 +28,7 @@ Faketories are factories for generating fake test data.
 Basically, "factories of fakes"... "Faketories"... I know, bad pun 😅.
 
 They provide four methods:
-- `createOne()` / `createMany()` - Generate standalone entities (not stored in DB)
+- `generateOne()` / `generateMany()` - Generate standalone entities (not stored in DB)
 - `seedOne()` / `seedMany()` - Generate and store entities in your MSW Data collection
 
 
@@ -84,32 +84,32 @@ const userFaketory = createFaketory(
 ```
 
 **Props available in your faketory function:**
-- `partial` - Override values passed to `createOne()`, `createMany()`, `seedOne()`, or `seedMany()`
-- `seedingMode` - `true` when called via `seedOne()`/`seedMany()`, `false` for `createOne()`/`createMany()`
+- `partial` - Override values passed to `generateOne()`, `generateMany()`, `seedOne()`, or `seedMany()`
+- `seedingMode` - `true` when called via `seedOne()`/`seedMany()`, `false` for `generateOne()`/`generateMany()`
 - `index` - Index when creating entities (0 for single, 0-N for multiple)
 
-### The `createOne()` Method
+### The `generateOne()` Method
 
-Creates a single standalone entity (not stored in the fake DB):
+Generates a single standalone entity (not stored in the fake DB):
 
 ```typescript
 // Single entity with defaults
-const user = await userFaketory.createOne();
+const user = await userFaketory.generateOne();
 
 // Single entity with overrides (auto-merged!)
-const admin = await userFaketory.createOne({ email: 'admin@example.com' });
+const admin = await userFaketory.generateOne({ email: 'admin@example.com' });
 ```
 
-### The `createMany()` Method
+### The `generateMany()` Method
 
-Creates multiple standalone entities (not stored in the fake DB):
+Generates multiple standalone entities (not stored in the fake DB):
 
 ```typescript
 // Multiple entities (returns array)
-const users = await userFaketory.createMany(5);
+const users = await userFaketory.generateMany(5);
 
 // Multiple entities with custom data (returns array, auto-merged!)
-const users = await userFaketory.createMany([
+const users = await userFaketory.generateMany([
   { email: 'one@example.com' },
   { email: 'two@example.com' },
 ]);
