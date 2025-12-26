@@ -4,12 +4,48 @@
 
 
 
-**Fake DB for UI Component Tests** 🎭
+**Fake Server Utils for UI Component Tests** 🎭
 </div>
 
-A powerful testing library that makes creating fake data with [MSW Data](https://github.com/mswjs/data) effortless. Create factories with auto-merged partials and organize test setup code with auto-discovered fakepoints.
+A powerful testing utility library designed to simplify creating and managing a fake server layer for UI component tests.
 
-*No real data was harmed in the making of this library.*
+> (No real data was harmed in the making of this library... 😉)
+
+## What's a fake server layer?
+
+A fake server layer needs two things to successfully simulate a real server:
+1. A way to store and manipulate **data** the same way the real server would.
+2. A way to react to **http requests** the way a real server would.
+
+Test Effective Fakes provides two powerful features to help you create and manage a fake server layer:
+
+### Faketories
+A util on top of [MSW Data](https://github.com/mswjs/data) for making it easier to seed or generate fake test data with automatic partial merging, relational seeding and more.
+
+### Fakepoints
+Auto-discovery system for organizing test setup code. Instead of manually importing MSW handlers across test files, fakepoints automatically discover and register your fake endpoints at a predictable time. 
+
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [1. Faketories](#1-faketories)
+  - [1.1 Create a Faketory](#11-create-a-faketory)
+  - [1.2 The `generateOne()` Method](#12-the-generateone-method)
+  - [1.3 The `generateMany()` Method](#13-the-generatemany-method)
+  - [1.4 The `seedOne()` Method](#14-the-seedone-method)
+  - [1.5 The `seedMany()` Method](#15-the-seedmany-method)
+  - [1.6 Direct Store Access](#16-direct-store-access)
+  - [1.7 Resetting Data](#17-resetting-data)
+  - [1.8 ⚠️ IMPORTANT: Preventing Stale Data](#18-️-important-preventing-stale-data)
+- [2. Fakepoints](#2-fakepoints)
+  - [2.1 How It Works](#21-how-it-works)
+  - [2.2 Setup](#22-setup)
+  - [2.3 Collecting Values from Fakepoints](#23-collecting-values-from-fakepoints)
+
+- [Contributing](#contributing)
+- [Code Of Conduct](#code-of-conduct)
+- [License](#license)
 
 ## Requirements
 
@@ -22,17 +58,29 @@ A powerful testing library that makes creating fake data with [MSW Data](https:/
 pnpm install -D @test-effective/fakes @msw/data
 ```
 
-## Faketories
+> **Recommended Additional Libraries**
+
+For the best experience, we recommend installing these additional libraries:
+
+```bash
+pnpm install -D @test-effective/fakes @msw/data @faker-js/faker valibot
+```
+
+- **`@faker-js/faker`** - Generate realistic fake data for your faketories
+- **`valibot`** - Schema validation library (but you can use `zod` or any other standard schema implementation)
+
+## 1. Faketories
 
 Faketories are factories for generating fake test data.
-Basically, "factories of fakes"... "Faketories"... I know, bad pun 😅.
+
+Basically, "factories of fakes"... "Faketories"... yeah, we know, great pun 😅.
 
 They provide four methods:
 - `generateOne()` / `generateMany()` - Generate standalone entities (not stored in DB)
 - `seedOne()` / `seedMany()` - Generate and store entities in your MSW Data collection
 
 
-### Quick Start
+### 1.1 Create a Faketory
 
 ```typescript
 import { createFaketory } from '@test-effective/fakes';
@@ -40,57 +88,48 @@ import { Collection } from '@msw/data';
 import { faker } from '@faker-js/faker';
 import * as v from 'valibot';
 
-// Define your schema
+// Define your fake db table schema (supports all standard schema implementations)
 const userSchema = v.object({
   id: v.string(),
   email: v.string(),
   name: v.string(),
 });
 
-// Create a collection
-const userCollection = new Collection({ schema: userSchema });
+// Create a MSW data collection, we called it 'store' because it's shorter.
+const userStore = new Collection({ schema: userSchema });
 
-// Create a faketory
-const userFaketory = createFaketory(userCollection, async ({ partial }) => {
-  return {
-    id: faker.string.uuid(),
-    email: faker.internet.email(),
-    name: faker.person.fullName(),
-    // partial is auto-merged - no need for ...partial!
-  };
+const userFaketory = createFaketory(
+  userStore, // MSW Data Store
+  async ({ seedingMode, index, partial }) => {
+    // Return default values
+    // partial is automatically merged - no need to spread it!
+    return {
+      id: faker.string.uuid(),
+      email: faker.internet.email(),
+      name: faker.person.fullName()
+    };
 });
 
 // Use it in tests
 const user = await userFaketory.seedOne({ email: 'test@example.com' });
-```
 
-
-
-### Creating a Faketory
-
-```typescript
-const userFaketory = createFaketory(
-  userCollection, // MSW Data Collection
-  async ({ partial, seedingMode, index }) => {
-    // Return default values
-    // partial is automatically merged - don't spread it!
-    return {
-      id: faker.string.uuid(),
-      email: faker.internet.email(),
-      name: faker.person.fullName(),
-    };
-  }
-);
+// Use it in fakepoints
+const users = userFaketory.store.findMany();
 ```
 
 **Props available in your faketory function:**
-- `partial` - Override values passed to `generateOne()`, `generateMany()`, `seedOne()`, or `seedMany()`
-- `seedingMode` - `true` when called via `seedOne()`/`seedMany()`, `false` for `generateOne()`/`generateMany()`
-- `index` - Index when creating entities (0 for single, 0-N for multiple)
+- `seedingMode` - is 'true' when called with one of the seeding methods.
+- `index` - when creating many entities, this is the index of the entity being created.
+- `partial` - Override default values created by the faketory function
 
-### The `generateOne()` Method
 
-Generates a single standalone entity (not stored in the fake DB):
+ **Auto-Merge Magic ✨**
+
+Partial data is **automatically merged** with defaults so you don't need to spread `...partial` in the end of your faketory function. 
+
+### 1.2 The `generateOne()` Method
+
+Generates a single standalone entity (**not stored** in the fake DB):
 
 ```typescript
 // Single entity with defaults
@@ -100,9 +139,9 @@ const user = await userFaketory.generateOne();
 const admin = await userFaketory.generateOne({ email: 'admin@example.com' });
 ```
 
-### The `generateMany()` Method
+### 1.3 The `generateMany()` Method
 
-Generates multiple standalone entities (not stored in the fake DB):
+Generates multiple standalone entities (**not stored** in the fake DB):
 
 ```typescript
 // Multiple entities (returns array)
@@ -115,9 +154,9 @@ const users = await userFaketory.generateMany([
 ]);
 ```
 
-### The `seedOne()` Method
+### 1.4 The `seedOne()` Method
 
-Creates and **stores** a single entity in your MSW Data collection:
+Creates and **stores** a single entity in the MSW Data store:
 
 ```typescript
 // Single entity (returns T)
@@ -127,9 +166,9 @@ const user = await userFaketory.seedOne();
 const admin = await userFaketory.seedOne({ email: 'admin@example.com' });
 ```
 
-### The `seedMany()` Method
+### 1.5 The `seedMany()` Method
 
-Creates and **stores** multiple entities in your MSW Data collection:
+Creates and **stores** multiple entities in the MSW Data store:
 
 ```typescript
 // Multiple entities (returns T[])
@@ -142,34 +181,15 @@ const users = await userFaketory.seedMany([
 ]);
 ```
 
-### Auto-Merge Magic ✨
+### 1.6 Direct Store Access
 
-Partial data is **automatically merged** with defaults. You don't need to spread `...partial` in your faketory function. We've got you covered (literally):
+Need to query or update your fake data? No problem! 
 
-```typescript
-// ❌ Don't do this
-const faketory = createFaketory(collection, async ({ partial }) => {
-  return {
-    id: faker.string.uuid(),
-    ...partial, // Not needed!
-  };
-});
+Access the MSW Data collection directly via the `store` property.
 
-// ✅ Do this instead
-const faketory = createFaketory(collection, async ({ partial }) => {
-  return {
-    id: faker.string.uuid(),
-    email: faker.internet.email(),
-    // partial is merged automatically!
-  };
-});
-```
+**Why "store" and not "collection"?** 
 
-### Direct Store Access
-
-Need to query or update your fake data? No problem! Access the MSW Data collection directly via the `store` property.
-
-**Why "store"?** Honestly? Because `store` is shorter than `collection`. 😅 and reads better in code: `userFaketory.store.findMany()` vs `userFaketory.collection.findMany()`.
+Honestly? Because `store` is shorter than `collection` 😊
 
 Under the hood, `store` is the MSW Data `Collection` instance, giving you full access to all its methods:
 
@@ -192,7 +212,7 @@ userFaketory.store.update({
 userFaketory.store.delete({ where: { id: user.id } });
 ```
 
-### Resetting Data
+### 1.7 Resetting Data
 
 Sometimes you need to hit the reset button (we've all been there):
 
@@ -202,9 +222,10 @@ userFaketory.reset();
 
 ```
 
-### ⚠️ IMPORTANT: Preventing Stale Data
+### 1.8 ⚠️ IMPORTANT: Preventing Stale Data
 
 **Always call `resetAllFaketories()` in a global `beforeEach` hook** to prevent stale data from previous tests. Without this, entities created in one test can leak into subsequent tests, causing flaky and unpredictable test failures. 
+
 
 ```typescript
 // tests-setup.ts
@@ -216,23 +237,17 @@ beforeEach(() => {
 });
 ```
 
-**Why this matters:**
-- Tests that rely on specific data counts will fail unexpectedly (like expecting 5 users but finding 47 from previous tests 😱)
-- Queries expecting empty collections will find leftover data (surprise! 🎉)
-- Test isolation is broken, making failures hard to debug (the classic "works on my machine")
-
-**Best practice:** Set this up once in your global test setup file, not in individual test files. One reset to rule them all! 💍
+<br/><br/>
 
 
+## 2. Fakepoints
 
-## Fakepoints
-
-Fakepoints (Fake Endpoints, we're very creative with naming here 🎯) are registration points for setting up the fake remote layer of your tests.
+Fakepoints (Fake Endpoints, we're very creative with naming here 🎯) are registration points for setting up the fake remote endpoints layer for your tests.
 
 Instead of manually importing MSW handlers across your test files, fakepoints auto-discover them and let you set them up at a predictable time.
 
 
-### How It Works
+### 2.1 How It Works
 
 
 1. You create `.fakepoints.ts` files and use the `registerFakepoints()` function to register your fake endpoints.
@@ -241,11 +256,9 @@ Instead of manually importing MSW handlers across your test files, fakepoints au
 
 **Use cases:**
 - Registering MSW handlers
-- Setting up fake DB schemas
-- Configuring test globals
+- Replacing remote services with fake ones
 
-
-### Setup
+### 2.2 Setup
 
 1. **Add the Vite plugin** to your `vite.config.ts`:
 
@@ -298,7 +311,7 @@ beforeAll(() => {
 });
 ```
 
-### Collecting Values from Fakepoints
+### 2.3 Collecting Values from Fakepoints
 
 Fakepoints can also return values that are collected when you call `runAllFakepoints()`. This is especially useful for collecting provider arrays (like in Angular), configuration objects, or any other test setup data that needs to be gathered from multiple files.
 
