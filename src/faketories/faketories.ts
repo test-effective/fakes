@@ -2,18 +2,18 @@ import type { Collection } from '@msw/data';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 
 /**
- * Creates a factory object with createOne/createMany and seedOne/seedMany methods for generating fake data.
+ * Creates a factory object with generateOne/generateMany and seedOne/seedMany methods for generating fake data.
  *
  * @template T - The entity type
  * @template Schema - The schema type (StandardSchemaV1)
  *
- * **createOne()** - Generates a single standalone entity (not stored in DB)
- * - `createOne()` - Creates one entity with all defaults
- * - `createOne(partial)` - Creates one entity merging partial with defaults (auto-merged!)
+ * **generateOne()** - Generates a single standalone entity (not stored in DB)
+ * - `generateOne()` - Generates one entity with all defaults
+ * - `generateOne(partial)` - Generates one entity merging partial with defaults (auto-merged!)
  *
- * **createMany()** - Generates multiple standalone entities (not stored in DB)
- * - `createMany(count)` - Creates N entities with defaults (index passed to faketory)
- * - `createMany(partials[])` - Creates entities merging each partial with defaults (auto-merged!)
+ * **generateMany()** - Generates multiple standalone entities (not stored in DB)
+ * - `generateMany(count)` - Generates N entities with defaults (index passed to faketory)
+ * - `generateMany(partials[])` - Generates entities merging each partial with defaults (auto-merged!)
  *
  * **seedOne()** - Creates and inserts a single entity into the collection (DB)
  * - `seedOne()` - Creates and stores 1 entity in DB (returns single entity)
@@ -40,11 +40,11 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
  *   };
  * });
  *
- * // Create standalone (not in DB)
- * const msg = await messageFaketory.createOne();
- * const customMsg = await messageFaketory.createOne({ content: 'Custom' }); // ✅ Auto-merged!
- * const msgs = await messageFaketory.createMany(5);
- * const msgs = await messageFaketory.createMany([{ content: 'First' }, { content: 'Second' }]);
+ * // Generate standalone (not in DB)
+ * const msg = await messageFaketory.generateOne();
+ * const customMsg = await messageFaketory.generateOne({ content: 'Custom' }); // ✅ Auto-merged!
+ * const msgs = await messageFaketory.generateMany(5);
+ * const msgs = await messageFaketory.generateMany([{ content: 'First' }, { content: 'Second' }]);
  *
  * // Seed into DB
  * const msg = await messageFaketory.seedOne(); // seeds 1 entity, returns T
@@ -61,8 +61,35 @@ export interface Faketory<
   T,
   Schema extends StandardSchemaV1 = StandardSchemaV1,
 > {
+  /**
+   * Generates a single standalone entity (not stored in DB).
+   * @param partial - Optional partial data to merge with defaults (auto-merged!)
+   */
+  generateOne(partial?: Partial<T>): Promise<T>;
+
+  /**
+   * Generates multiple standalone entities (not stored in DB).
+   * @param count - Number of entities to generate
+   */
+  generateMany(count: number): Promise<T[]>;
+  /**
+   * Generates multiple standalone entities (not stored in DB).
+   * @param partials - Array of partial data to merge with defaults (auto-merged!)
+   */
+  generateMany(partials: Partial<T>[]): Promise<T[]>;
+  generateMany(input: number | Partial<T>[]): Promise<T[]>;
+
+  /**
+   * @deprecated Use `generateOne()` instead. This method will be removed in a future version.
+   */
   createOne(partial?: Partial<T>): Promise<T>;
+  /**
+   * @deprecated Use `generateMany()` instead. This method will be removed in a future version.
+   */
   createMany(count: number): Promise<T[]>;
+  /**
+   * @deprecated Use `generateMany()` instead. This method will be removed in a future version.
+   */
   createMany(partials: Partial<T>[]): Promise<T[]>;
   createMany(input: number | Partial<T>[]): Promise<T[]>;
 
@@ -119,9 +146,9 @@ export function createFaketory<Schema extends StandardSchemaV1<any>>(
   };
 
   /**
-   * Creates a single standalone entity (not stored in DB)
+   * Generates a single standalone entity (not stored in DB)
    */
-  async function createOne(
+  async function generateOne(
     partial?: Partial<InferSchemaOutput<Schema>>,
   ): Promise<InferSchemaOutput<Schema>> {
     return await wrappedEntityFaketory({
@@ -132,15 +159,15 @@ export function createFaketory<Schema extends StandardSchemaV1<any>>(
   }
 
   /**
-   * Creates multiple standalone entities (not stored in DB)
+   * Generates multiple standalone entities (not stored in DB)
    */
-  async function createMany(
+  async function generateMany(
     count: number,
   ): Promise<InferSchemaOutput<Schema>[]>;
-  async function createMany(
+  async function generateMany(
     partials: Partial<InferSchemaOutput<Schema>>[],
   ): Promise<InferSchemaOutput<Schema>[]>;
-  async function createMany(
+  async function generateMany(
     input: number | Partial<InferSchemaOutput<Schema>>[],
   ): Promise<InferSchemaOutput<Schema>[]> {
     // Number - create N entities (pass index to each)
@@ -157,6 +184,40 @@ export function createFaketory<Schema extends StandardSchemaV1<any>>(
       input.map((partial, index) =>
         wrappedEntityFaketory({ seedingMode: false, partial, index }),
       ),
+    );
+  }
+
+  /**
+   * @deprecated Use `generateOne()` instead. This method will be removed in a future version.
+   * Creates a single standalone entity (not stored in DB)
+   */
+  async function createOne(
+    partial?: Partial<InferSchemaOutput<Schema>>,
+  ): Promise<InferSchemaOutput<Schema>> {
+    console.warn(
+      'createOne() is deprecated and will be removed in a future version. Use generateOne() instead.',
+    );
+    return await generateOne(partial);
+  }
+
+  /**
+   * @deprecated Use `generateMany()` instead. This method will be removed in a future version.
+   * Creates multiple standalone entities (not stored in DB)
+   */
+  async function createMany(
+    count: number,
+  ): Promise<InferSchemaOutput<Schema>[]>;
+  async function createMany(
+    partials: Partial<InferSchemaOutput<Schema>>[],
+  ): Promise<InferSchemaOutput<Schema>[]>;
+  async function createMany(
+    input: number | Partial<InferSchemaOutput<Schema>>[],
+  ): Promise<InferSchemaOutput<Schema>[]> {
+    console.warn(
+      'createMany() is deprecated and will be removed in a future version. Use generateMany() instead.',
+    );
+    return await generateMany(
+      input as number & Partial<InferSchemaOutput<Schema>>[],
     );
   }
 
@@ -203,6 +264,8 @@ export function createFaketory<Schema extends StandardSchemaV1<any>>(
   }
 
   const faketory: Faketory<InferSchemaOutput<Schema>, Schema> = {
+    generateOne,
+    generateMany,
     createOne,
     createMany,
     seedOne,
