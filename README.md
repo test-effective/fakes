@@ -152,6 +152,15 @@ const users = await userFaketory.generateMany([
   { email: 'one@example.com' },
   { email: 'two@example.com' },
 ]);
+
+// Generate N entities, merge partials by index (auto-merged!)
+const users = await userFaketory.generateMany(3, [
+  { email: 'first@example.com' },
+]);
+// Creates 3 entities:
+// - users[0] has email: 'first@example.com' (merged with defaults)
+// - users[1] uses all defaults
+// - users[2] uses all defaults
 ```
 
 ### 1.4 The `seedOne()` Method
@@ -179,6 +188,16 @@ const users = await userFaketory.seedMany([
   { email: 'one@example.com' },
   { email: 'two@example.com' },
 ]);
+
+// Seed N entities, merge partials by index (auto-merged!)
+const users = await userFaketory.seedMany(5, [
+  { email: 'admin@example.com', name: 'Admin' },
+  { email: 'user@example.com' },
+]);
+// Creates 5 entities in the store:
+// - users[0] has email: 'admin@example.com' and name: 'Admin'
+// - users[1] has email: 'user@example.com' (other fields use defaults)
+// - users[2-4] use all defaults
 ```
 
 ### 1.6 Direct Store Access
