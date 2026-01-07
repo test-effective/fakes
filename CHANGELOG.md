@@ -1,5 +1,23 @@
 # @test-effective/fakes
 
+## 0.2.0
+
+### Minor Changes
+
+- ✨ passing partials alongside count in seed/generate many (by [@shairez](https://github.com/shairez) in [#7](https://github.com/test-effective/fakes/pull/7))
+
+  Example:
+
+  ```typescript
+  const users = await userFaketory.seedMany(3, [
+    { email: 'first@example.com' },
+  ]);
+  // Creates 3 entities:
+  // - users[0] has email: 'first@example.com' (merged with defaults)
+  // - users[1] uses all defaults
+  // - users[2] uses all defaults
+  ```
+
 ## 0.1.0
 
 ### Minor Changes
