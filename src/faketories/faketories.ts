@@ -14,6 +14,7 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
  * **generateMany()** - Generates multiple standalone entities (not stored in DB)
  * - `generateMany(count)` - Generates N entities with defaults (index passed to faketory)
  * - `generateMany(partials[])` - Generates entities merging each partial with defaults (auto-merged!)
+ * - `generateMany(count, partials[])` - Generates N entities, merges partials by index (auto-merged!)
  *
  * **seedOne()** - Creates and inserts a single entity into the collection (DB)
  * - `seedOne()` - Creates and stores 1 entity in DB (returns single entity)
@@ -22,6 +23,7 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
  * **seedMany()** - Creates and inserts multiple entities into the collection (DB)
  * - `seedMany(count)` - Creates and stores N entities in DB (returns array)
  * - `seedMany(partials[])` - Creates and stores entities with partial data merged (returns array, auto-merged!)
+ * - `seedMany(count, partials[])` - Creates N entities, merges partials by index (returns array, auto-merged!)
  *
  * **store** - Direct access to the MSW Data collection for queries and updates
  * - Use `store.findMany()`, `store.findFirst()`, `store.update()`, etc.
@@ -45,12 +47,14 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
  * const customMsg = await messageFaketory.generateOne({ content: 'Custom' }); // ✅ Auto-merged!
  * const msgs = await messageFaketory.generateMany(5);
  * const msgs = await messageFaketory.generateMany([{ content: 'First' }, { content: 'Second' }]);
+ * const msgs = await messageFaketory.generateMany(3, [{ content: 'First' }]); // ✅ Merges partial with first, others use defaults
  *
  * // Seed into DB
  * const msg = await messageFaketory.seedOne(); // seeds 1 entity, returns T
  * const msg = await messageFaketory.seedOne({ content: 'Custom' }); // ✅ Auto-merged!
  * const msgs = await messageFaketory.seedMany(10); // seeds 10 entities, returns T[]
  * const msgs = await messageFaketory.seedMany([{ content: 'First' }, { content: 'Second' }]); // ✅ Auto-merged!
+ * const msgs = await messageFaketory.seedMany(3, [{ content: 'First' }]); // ✅ Merges partial with first, others use defaults
  *
  * // Query the store directly
  * const messages = messageFaketory.store.findMany();
@@ -77,7 +81,16 @@ export interface Faketory<
    * @param partials - Array of partial data to merge with defaults (auto-merged!)
    */
   generateMany(partials: Partial<T>[]): Promise<T[]>;
-  generateMany(input: number | Partial<T>[]): Promise<T[]>;
+  /**
+   * Generates multiple standalone entities (not stored in DB).
+   * @param count - Number of entities to generate
+   * @param partials - Array of partial data to merge with defaults by index (auto-merged!)
+   */
+  generateMany(count: number, partials: Partial<T>[]): Promise<T[]>;
+  generateMany(
+    input: number | Partial<T>[],
+    partials?: Partial<T>[],
+  ): Promise<T[]>;
 
   /**
    * @deprecated Use `generateOne()` instead. This method will be removed in a future version.
@@ -94,9 +107,23 @@ export interface Faketory<
   createMany(input: number | Partial<T>[]): Promise<T[]>;
 
   seedOne(partial?: Partial<T>): Promise<T>;
+  /**
+   * Creates and inserts multiple entities into the collection (DB).
+   * @param count - Number of entities to seed
+   */
   seedMany(count: number): Promise<T[]>;
+  /**
+   * Creates and inserts multiple entities into the collection (DB).
+   * @param partials - Array of partial data to merge with defaults (auto-merged!)
+   */
   seedMany(partials: Partial<T>[]): Promise<T[]>;
-  seedMany(input: number | Partial<T>[]): Promise<T[]>;
+  /**
+   * Creates and inserts multiple entities into the collection (DB).
+   * @param count - Number of entities to seed
+   * @param partials - Array of partial data to merge with defaults by index (auto-merged!)
+   */
+  seedMany(count: number, partials: Partial<T>[]): Promise<T[]>;
+  seedMany(input: number | Partial<T>[], partials?: Partial<T>[]): Promise<T[]>;
 
   reset(): void;
 
@@ -168,9 +195,27 @@ export function createFaketory<Schema extends StandardSchemaV1<any>>(
     partials: Partial<InferSchemaOutput<Schema>>[],
   ): Promise<InferSchemaOutput<Schema>[]>;
   async function generateMany(
+    count: number,
+    partials: Partial<InferSchemaOutput<Schema>>[],
+  ): Promise<InferSchemaOutput<Schema>[]>;
+  async function generateMany(
     input: number | Partial<InferSchemaOutput<Schema>>[],
+    partials?: Partial<InferSchemaOutput<Schema>>[],
   ): Promise<InferSchemaOutput<Schema>[]> {
-    // Number - create N entities (pass index to each)
+    // Case 1: generateMany(count, partials) - create N entities, merge partials by index
+    if (typeof input === 'number' && partials) {
+      return await Promise.all(
+        Array.from({ length: input }, (_, index) =>
+          wrappedEntityFaketory({
+            seedingMode: false,
+            partial: partials[index],
+            index,
+          }),
+        ),
+      );
+    }
+
+    // Case 2: generateMany(count) - create N entities (pass index to each)
     if (typeof input === 'number') {
       return await Promise.all(
         Array.from({ length: input }, (_, index) =>
@@ -179,7 +224,7 @@ export function createFaketory<Schema extends StandardSchemaV1<any>>(
       );
     }
 
-    // Array - create entities with partials (pass index to each)
+    // Case 3: generateMany(partials) - create entities with partials (pass index to each)
     return await Promise.all(
       input.map((partial, index) =>
         wrappedEntityFaketory({ seedingMode: false, partial, index }),
@@ -211,11 +256,19 @@ export function createFaketory<Schema extends StandardSchemaV1<any>>(
     partials: Partial<InferSchemaOutput<Schema>>[],
   ): Promise<InferSchemaOutput<Schema>[]>;
   async function createMany(
+    count: number,
+    partials: Partial<InferSchemaOutput<Schema>>[],
+  ): Promise<InferSchemaOutput<Schema>[]>;
+  async function createMany(
     input: number | Partial<InferSchemaOutput<Schema>>[],
+    partials?: Partial<InferSchemaOutput<Schema>>[],
   ): Promise<InferSchemaOutput<Schema>[]> {
     console.warn(
       'createMany() is deprecated and will be removed in a future version. Use generateMany() instead.',
     );
+    if (partials) {
+      return await generateMany(input as number, partials);
+    }
     return await generateMany(
       input as number & Partial<InferSchemaOutput<Schema>>[],
     );
@@ -240,8 +293,28 @@ export function createFaketory<Schema extends StandardSchemaV1<any>>(
     partials: Partial<InferSchemaOutput<Schema>>[],
   ): Promise<InferSchemaOutput<Schema>[]>;
   async function seedMany(
+    count: number,
+    partials: Partial<InferSchemaOutput<Schema>>[],
+  ): Promise<InferSchemaOutput<Schema>[]>;
+  async function seedMany(
     input: number | Partial<InferSchemaOutput<Schema>>[],
+    partialsArg?: Partial<InferSchemaOutput<Schema>>[],
   ): Promise<InferSchemaOutput<Schema>[]> {
+    // Case 1: seedMany(count, partials) - create N entities, merge partials by index
+    if (typeof input === 'number' && partialsArg) {
+      const entities: InferSchemaOutput<Schema>[] = [];
+      for (let index = 0; index < input; index++) {
+        const partial = partialsArg[index];
+        entities.push(
+          await fakeDbCollection.create(
+            await wrappedEntityFaketory({ seedingMode: true, partial, index }),
+          ),
+        );
+      }
+      return entities;
+    }
+
+    // Case 2 & 3: seedMany(count) or seedMany(partials)
     const count = typeof input === 'number' ? input : input.length;
     const partials: Array<Partial<InferSchemaOutput<Schema>> | undefined> =
       typeof input === 'number' ? Array(count).fill(undefined) : input;

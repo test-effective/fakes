@@ -106,6 +106,75 @@ describe('createFaketory', () => {
       const allUsers = userStore.findMany();
       expect(allUsers).toHaveLength(0);
     });
+
+    test(`GIVEN count and array of partials (less than count),
+           THEN generates count entities merging partials by index`, async () => {
+      const { userFaketory } = setup();
+      const users = await userFaketory.generateMany(3, [
+        { email: 'first@example.com' },
+      ]);
+
+      expect(Array.isArray(users)).toBe(true);
+      expect(users).toHaveLength(3);
+      // First entity should have merged partial
+      expect(users[0].email).toBe('first@example.com');
+      expect(users[0].id).toBe(1); // index-based ID
+      // Other entities should use defaults
+      expect(users[1].email).not.toBe('first@example.com');
+      expect(users[1].id).toBe(2);
+      expect(users[2].email).not.toBe('first@example.com');
+      expect(users[2].id).toBe(3);
+    });
+
+    test(`GIVEN count and array of partials (equal to count),
+           THEN generates count entities merging all partials`, async () => {
+      const { userFaketory } = setup();
+      const users = await userFaketory.generateMany(3, [
+        { email: 'first@example.com', name: 'First' },
+        { email: 'second@example.com', name: 'Second' },
+        { email: 'third@example.com', name: 'Third' },
+      ]);
+
+      expect(Array.isArray(users)).toBe(true);
+      expect(users).toHaveLength(3);
+      expect(users[0].email).toBe('first@example.com');
+      expect(users[0].name).toBe('First');
+      expect(users[1].email).toBe('second@example.com');
+      expect(users[1].name).toBe('Second');
+      expect(users[2].email).toBe('third@example.com');
+      expect(users[2].name).toBe('Third');
+    });
+
+    test(`GIVEN count and array of partials (more than count),
+           THEN generates count entities ignoring extra partials`, async () => {
+      const { userFaketory } = setup();
+      const users = await userFaketory.generateMany(2, [
+        { email: 'first@example.com' },
+        { email: 'second@example.com' },
+        { email: 'third@example.com' }, // This should be ignored
+      ]);
+
+      expect(Array.isArray(users)).toBe(true);
+      expect(users).toHaveLength(2);
+      expect(users[0].email).toBe('first@example.com');
+      expect(users[1].email).toBe('second@example.com');
+      // No third entity should exist
+    });
+
+    test(`GIVEN count and empty array of partials,
+           THEN generates count entities with defaults`, async () => {
+      const { userFaketory } = setup();
+      const users = await userFaketory.generateMany(3, []);
+
+      expect(Array.isArray(users)).toBe(true);
+      expect(users).toHaveLength(3);
+      users.forEach((user: User, index: number) => {
+        expect(user).toHaveProperty('id');
+        expect(user).toHaveProperty('email');
+        expect(user).toHaveProperty('name');
+        expect(user.id).toBe(index + 1);
+      });
+    });
   });
 
   describe('seedOne()', () => {
@@ -187,6 +256,87 @@ describe('createFaketory', () => {
 
       const allUsers = userStore.findMany();
       expect(allUsers).toHaveLength(5); // 1 + 1 + 3
+    });
+
+    test(`GIVEN count and array of partials (less than count),
+           THEN seeds count entities merging partials by index`, async () => {
+      const { userStore, userFaketory } = setup();
+      const users = await userFaketory.seedMany(3, [
+        { email: 'first@example.com' },
+      ]);
+
+      expect(Array.isArray(users)).toBe(true);
+      expect(users).toHaveLength(3);
+
+      const allUsers = userStore.findMany();
+      expect(allUsers).toHaveLength(3);
+      // First entity should have merged partial
+      expect(allUsers[0].email).toBe('first@example.com');
+      expect(allUsers[0].id).toBe(1);
+      // Other entities should use defaults
+      expect(allUsers[1].email).not.toBe('first@example.com');
+      expect(allUsers[1].id).toBe(2);
+      expect(allUsers[2].email).not.toBe('first@example.com');
+      expect(allUsers[2].id).toBe(3);
+    });
+
+    test(`GIVEN count and array of partials (equal to count),
+           THEN seeds count entities merging all partials`, async () => {
+      const { userStore, userFaketory } = setup();
+      const users = await userFaketory.seedMany(3, [
+        { email: 'first@example.com', name: 'First' },
+        { email: 'second@example.com', name: 'Second' },
+        { email: 'third@example.com', name: 'Third' },
+      ]);
+
+      expect(Array.isArray(users)).toBe(true);
+      expect(users).toHaveLength(3);
+
+      const allUsers = userStore.findMany();
+      expect(allUsers).toHaveLength(3);
+      expect(allUsers[0].email).toBe('first@example.com');
+      expect(allUsers[0].name).toBe('First');
+      expect(allUsers[1].email).toBe('second@example.com');
+      expect(allUsers[1].name).toBe('Second');
+      expect(allUsers[2].email).toBe('third@example.com');
+      expect(allUsers[2].name).toBe('Third');
+    });
+
+    test(`GIVEN count and array of partials (more than count),
+           THEN seeds count entities ignoring extra partials`, async () => {
+      const { userStore, userFaketory } = setup();
+      const users = await userFaketory.seedMany(2, [
+        { email: 'first@example.com' },
+        { email: 'second@example.com' },
+        { email: 'third@example.com' }, // This should be ignored
+      ]);
+
+      expect(Array.isArray(users)).toBe(true);
+      expect(users).toHaveLength(2);
+
+      const allUsers = userStore.findMany();
+      expect(allUsers).toHaveLength(2);
+      expect(allUsers[0].email).toBe('first@example.com');
+      expect(allUsers[1].email).toBe('second@example.com');
+      // No third entity should exist
+    });
+
+    test(`GIVEN count and empty array of partials,
+           THEN seeds count entities with defaults`, async () => {
+      const { userStore, userFaketory } = setup();
+      const users = await userFaketory.seedMany(3, []);
+
+      expect(Array.isArray(users)).toBe(true);
+      expect(users).toHaveLength(3);
+
+      const allUsers = userStore.findMany();
+      expect(allUsers).toHaveLength(3);
+      allUsers.forEach((user: User, index: number) => {
+        expect(user).toHaveProperty('id');
+        expect(user).toHaveProperty('email');
+        expect(user).toHaveProperty('name');
+        expect(user.id).toBe(index + 1);
+      });
     });
   });
 
