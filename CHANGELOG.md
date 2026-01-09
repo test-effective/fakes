@@ -1,5 +1,15 @@
 # @test-effective/fakes
 
+## 0.3.0
+
+### Minor Changes
+
+- ✨ added ability to choose different suffix for fakepoints (by [@shairez](https://github.com/shairez) in [#9](https://github.com/test-effective/fakes/pull/9))
+
+### Patch Changes
+
+- 🐞🩹 changes to fakepoints now trigger tests re-runs (by [@shairez](https://github.com/shairez) in [#9](https://github.com/test-effective/fakes/pull/9))
+
 ## 0.2.0
 
 ### Minor Changes
