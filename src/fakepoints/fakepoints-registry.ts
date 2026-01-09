@@ -22,7 +22,7 @@ export function registerFakepoints<T = void>(fakepointsFn: () => T): void {
 
 /**
  * Executes all registered fakepoints and collects their return values.
- * If a fakepoint returns an array, it will be automatically flattened.
+ * If fakepoints  returns an array, it will be automatically flattened.
  *
  * @template T - The type of individual items in the returned array
  * @returns An array of collected values from all fakepoints (empty if fakepoints return void)

@@ -26,19 +26,19 @@ async function setup() {
   // Create .fakepoints.ts files in valid locations
   await writeFile(
     path.join(testRoot, 'src', 'models', 'user.fakepoints.ts'),
-    'export const userFakepoint = {};',
+    'export const userfakepoints = {};',
   );
   await writeFile(
     path.join(testRoot, 'src', 'models', 'post.fakepoints.ts'),
-    'export const postFakepoint = {};',
+    'export const postfakepoints = {};',
   );
   await writeFile(
     path.join(testRoot, 'src', 'utils', 'helper.fakepoints.ts'),
-    'export const helperFakepoint = {};',
+    'export const helperfakepoints = {};',
   );
   await writeFile(
     path.join(testRoot, 'tests', 'test.fakepoints.ts'),
-    'export const testFakepoint = {};',
+    'export const testfakepoints = {};',
   );
 
   // Create .fakepoints.ts files in ignored locations (should not be included)
@@ -60,10 +60,20 @@ async function setup() {
     'export const ignored = {};',
   );
 
-  // Create some non-fakepoint files
+  // Create some non-fakepoints files
   await writeFile(
     path.join(testRoot, 'src', 'models', 'user.ts'),
     'export const user = {};',
+  );
+
+  // Create files with custom pattern for filePattern tests
+  await writeFile(
+    path.join(testRoot, 'src', 'models', 'user.test-data.ts'),
+    'export const userTestData = {};',
+  );
+  await writeFile(
+    path.join(testRoot, 'src', 'utils', 'helper.test-data.ts'),
+    'export const helperTestData = {};',
   );
 
   return {
@@ -74,7 +84,15 @@ async function setup() {
   };
 }
 
-function getPlugin(testRoot: string, options?: { debug?: boolean }): Plugin {
+function getPlugin(
+  testRoot: string,
+  options?: {
+    debug?: boolean;
+    watch?: boolean;
+    ignoreDirs?: string[];
+    filePattern?: string;
+  },
+): Plugin {
   const plugins = collectFakepointsPlugin({
     workspaceRoot: testRoot,
     ...options,
@@ -95,10 +113,9 @@ describe('collectFakepointsPlugin', () => {
       const plugin = getPlugin(testRoot);
       const result = await loadVirtualModule(plugin);
 
-      expect(result).toBeTruthy();
       expect(result).toContain('// Auto-generated virtual module');
 
-      // Should include valid fakepoint files
+      // Should include valid fakepoints files
       expect(result).toContain("import '/src/models/user.fakepoints.ts';");
       expect(result).toContain("import '/src/models/post.fakepoints.ts';");
       expect(result).toContain("import '/src/utils/helper.fakepoints.ts';");
@@ -109,7 +126,7 @@ describe('collectFakepointsPlugin', () => {
       expect(result).not.toContain('/dist/');
       expect(result).not.toContain('/tmp/');
 
-      // Should not include non-fakepoint files
+      // Should not include non-fakepoints files
       expect(result).not.toContain("import '/src/models/user.ts';");
     } finally {
       await cleanup();
@@ -124,7 +141,7 @@ THEN includes console log statements in output`, async () => {
       const result = await loadVirtualModule(plugin);
 
       expect(result).toContain("console.log('Loaded");
-      expect(result).toContain("fakepoint file(s)');");
+      expect(result).toContain("fakepoints file(s)');");
     } finally {
       await cleanup();
     }
@@ -145,6 +162,107 @@ THEN handles gracefully`, async () => {
       expect(result).not.toContain("import '/");
     } finally {
       await rm(emptyRoot, { recursive: true, force: true });
+    }
+  });
+
+  test(`GIVEN ignoreDirs option,
+THEN excludes specified directories from collection`, async () => {
+    const { testRoot, cleanup } = await setup();
+    try {
+      // Configure to ignore 'tests' and 'utils' directories
+      const plugin = getPlugin(testRoot, { ignoreDirs: ['tests', 'utils'] });
+      const result = await loadVirtualModule(plugin);
+
+      expect(result).toBeTruthy();
+
+      // Should include files NOT in ignored directories
+      expect(result).toContain("import '/src/models/user.fakepoints.ts';");
+      expect(result).toContain("import '/src/models/post.fakepoints.ts';");
+
+      // Should NOT include files from custom ignored directories
+      expect(result).not.toContain("import '/tests/test.fakepoints.ts';");
+      expect(result).not.toContain("import '/src/utils/helper.fakepoints.ts';");
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test(`GIVEN ignoreDirs option,
+THEN config returns watcher ignore patterns (or undefined when not set)`, async () => {
+    const { testRoot, cleanup } = await setup();
+    try {
+      // Test WITH ignoreDirs - should return watcher ignore patterns
+      const pluginWithIgnore = getPlugin(testRoot, {
+        ignoreDirs: ['coverage', 'build', '.nx'],
+      });
+      const configWithIgnore = pluginWithIgnore.config as () => {
+        server: { watch: { ignored: string[] } };
+      };
+      const resultWithIgnore = configWithIgnore();
+
+      expect(resultWithIgnore).toBeDefined();
+      expect(resultWithIgnore.server.watch.ignored).toEqual([
+        '**/coverage/**',
+        '**/build/**',
+        '**/.nx/**',
+      ]);
+
+      // Test WITHOUT ignoreDirs - should return undefined
+      const pluginWithoutIgnore = getPlugin(testRoot);
+      const configWithoutIgnore = pluginWithoutIgnore.config as () => undefined;
+      const resultWithoutIgnore = configWithoutIgnore();
+
+      expect(resultWithoutIgnore).toBeUndefined();
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test(`GIVEN custom filePattern option,
+THEN collects only files matching the custom pattern`, async () => {
+    const { testRoot, cleanup } = await setup();
+    try {
+      // Configure to use custom file pattern
+      const plugin = getPlugin(testRoot, { filePattern: '.test-data.ts' });
+      const result = await loadVirtualModule(plugin);
+
+      expect(result).toBeTruthy();
+      expect(result).toContain(
+        '// Auto-generated virtual module that imports all .test-data.ts files',
+      );
+
+      // Should include files matching custom pattern
+      expect(result).toContain("import '/src/models/user.test-data.ts';");
+      expect(result).toContain("import '/src/utils/helper.test-data.ts';");
+
+      // Should NOT include .fakepoints.ts files
+      expect(result).not.toContain('user.fakepoints.ts');
+      expect(result).not.toContain('post.fakepoints.ts');
+      expect(result).not.toContain('helper.fakepoints.ts');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test(`GIVEN default configuration (no filePattern),
+THEN uses .fakepoints.ts as default pattern`, async () => {
+    const { testRoot, cleanup } = await setup();
+    try {
+      const plugin = getPlugin(testRoot);
+      const result = await loadVirtualModule(plugin);
+
+      expect(result).toBeTruthy();
+      expect(result).toContain(
+        '// Auto-generated virtual module that imports all .fakepoints.ts files',
+      );
+
+      // Should include .fakepoints.ts files
+      expect(result).toContain("import '/src/models/user.fakepoints.ts';");
+
+      // Should NOT include .test-data.ts files
+      expect(result).not.toContain('test-data.ts');
+    } finally {
+      await cleanup();
     }
   });
 });
