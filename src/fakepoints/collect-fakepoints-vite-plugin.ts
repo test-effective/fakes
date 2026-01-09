@@ -28,13 +28,22 @@ export type CollectFakepointsPluginOptions = {
    */
   watch?: boolean;
   /**
+   * The file pattern to match fakepoints files.
+   * Files matching this pattern will be collected and imported.
+   *
+   * @default '.fakepoints.ts'
+   * @example '.fakes.ts'
+   * @example '.test-data.ts'
+   */
+  filePattern?: string;
+  /**
    * Enable debug mode to see detailed logging about plugin operations.
    * When enabled, logs information about:
    * - Watcher ignore patterns being configured
    * - Virtual module loading
-   * - Number of fakepoint files loaded
+   * - Number of fakepoints files loaded
    * - File watcher setup status
-   * - All file system events for .fakepoints.ts files (add, change, unlink)
+   * - All file system events for fakepoints files (add, change, unlink)
    *
    * Useful for troubleshooting issues with file discovery, watching, or test reruns.
    *
@@ -52,6 +61,7 @@ export function collectFakepointsPlugin(
   const debug = options.debug ?? false;
   const watch = options.watch ?? true;
   const ignoreDirs = new Set(options.ignoreDirs || []);
+  const filePattern = options.filePattern ?? '.fakepoints.ts';
 
   return [
     // Pre plugin: Handle virtual module registration
@@ -94,29 +104,29 @@ export function collectFakepointsPlugin(
           if (debug) {
             console.log(`🔄 Loading virtual module ${VIRTUAL_MODULE_ID}`);
           }
-          // Find all .fakepoints.ts files in the workspace
+          // Find all fakepoints files in the workspace
           const fakepointFiles = await findFakepointFiles(
             workspaceRoot,
             ignoreDirs,
+            filePattern,
           );
 
-          // Generate import statements for all fakepoint files using direct file paths
+          // Generate import statements for all fakepoints files using direct file paths
           const imports = fakepointFiles.map(file => {
             const relativePath = path.posix.join('/', file);
             return `import '${relativePath}';`;
           });
 
           if (imports.length === 0) {
-            console.warn(`� No fakepoint files found in ${workspaceRoot}
-You may need to configure the workspaceRoot in your vite.config.ts file 
-to point to the actual root of the workspace.`);
+            console.warn(`� No fakepoints files (${filePattern}) found in ${workspaceRoot}
+You may need to configure the workspaceRoot or filePattern in your vite.config.ts file.`);
           }
 
-          // Return the virtual module content that imports all fakepoint files
-          return `// Auto-generated virtual module that imports all .fakepoints.ts files
+          // Return the virtual module content that imports all fakepoints files
+          return `// Auto-generated virtual module that imports all ${filePattern} files
 ${imports.join('\n')}
 
-${debug ? `console.log('Loaded ${imports.length} fakepoint file(s)');` : ''}
+${debug ? `console.log('Loaded ${imports.length} fakepoints file(s)');` : ''}
 `;
         }
 
@@ -138,6 +148,7 @@ ${debug ? `console.log('Loaded ${imports.length} fakepoint file(s)');` : ''}
         const fakepointFiles = await findFakepointFiles(
           workspaceRoot,
           ignoreDirs,
+          filePattern,
         );
         const absoluteFakepointPaths = fakepointFiles.map(file =>
           path.resolve(workspaceRoot, file),
@@ -146,7 +157,7 @@ ${debug ? `console.log('Loaded ${imports.length} fakepoint file(s)');` : ''}
         // Explicitly add fakepoints files to watcher
         server.watcher.add(absoluteFakepointPaths);
 
-        // Watch the entire workspace root for new fakepoint files
+        // Watch the entire workspace root for new fakepoints files
         // This ensures 'add' events fire even for fakepoints in new directories
         const absoluteWorkspaceRoot = path.resolve(workspaceRoot);
 
@@ -160,7 +171,7 @@ ${debug ? `console.log('Loaded ${imports.length} fakepoint file(s)');` : ''}
         // Watch for ALL events to debug
         if (debug) {
           server.watcher.on('all', (event, file) => {
-            if (file.endsWith('.fakepoints.ts')) {
+            if (file.endsWith(filePattern)) {
               console.log(`\n🔔 [watcher:all] Event '${event}' for: ${file}`);
             }
           });
@@ -177,8 +188,10 @@ ${debug ? `console.log('Loaded ${imports.length} fakepoint file(s)');` : ''}
 
         // Watch for new fakepoints files being added
         server.watcher.on('add', file => {
-          if (file.endsWith('.fakepoints.ts')) {
-            console.log(`\n➕ [watcher:add] New fakepoint file added: ${file}`);
+          if (file.endsWith(filePattern)) {
+            console.log(
+              `\n➕ [watcher:add] New fakepoints file added: ${file}`,
+            );
 
             // Add the new file to our tracking list
             absoluteFakepointPaths.push(file);
@@ -196,9 +209,9 @@ ${debug ? `console.log('Loaded ${imports.length} fakepoint file(s)');` : ''}
 
         // Watch for fakepoints files being deleted
         server.watcher.on('unlink', file => {
-          if (file.endsWith('.fakepoints.ts')) {
+          if (file.endsWith(filePattern)) {
             console.log(
-              `\n➖ [watcher:unlink] Fakepoint file deleted: ${file}`,
+              `\n➖ [watcher:unlink] fakepoints file deleted: ${file}`,
             );
             // Remove from our tracking list
             const index = absoluteFakepointPaths.indexOf(file);
@@ -215,11 +228,12 @@ ${debug ? `console.log('Loaded ${imports.length} fakepoint file(s)');` : ''}
 }
 
 /**
- * Recursively finds all .fakepoints.ts files in a directory
+ * Recursively finds all fakepoints files matching the given pattern in a directory
  */
 async function findFakepointFiles(
   rootDir: string,
   ignoreDirs: Set<string>,
+  filePattern: string,
 ): Promise<string[]> {
   const fakepointFiles: string[] = [];
 
@@ -240,7 +254,7 @@ async function findFakepointFiles(
           if (!allIgnoreDirs.has(entry.name)) {
             await walk(path.join(dir, entry.name), relativePath);
           }
-        } else if (entry.isFile() && entry.name.endsWith('.fakepoints.ts')) {
+        } else if (entry.isFile() && entry.name.endsWith(filePattern)) {
           fakepointFiles.push(relativePath);
         }
       }

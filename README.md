@@ -269,8 +269,8 @@ Instead of manually importing MSW handlers across your test files, fakepoints au
 ### 2.1 How It Works
 
 
-1. You create `.fakepoints.ts` files and use the `registerFakepoints()` function to register your fake endpoints.
-2. The Vite plugin scans your workspace for all `.fakepoints.ts` files and creates a virtual module `collected-fakepoints` that imports them all.
+1. You create `.fakepoints.ts` files (or use a custom pattern via the `filePattern` option) and use the `registerFakepoints()` function to register your fake endpoints.
+2. The Vite plugin scans your workspace for all matching files and creates a virtual module `collected-fakepoints` that imports them all.
 3. When you call `runAllFakepoints()`, all registered functions run.
 
 **Use cases:**
@@ -288,6 +288,7 @@ export default defineConfig({
   plugins: [
     collectFakepointsPlugin({
       workspaceRoot: '../../your/project/root', // Optional, defaults to process.cwd()
+      filePattern: '.fakepoints.ts', // Optional, file pattern to match (default: '.fakepoints.ts')
       debug: false, // Optional, enables debug logging
       watch: true, // Optional, enables file watching for auto test reruns (default: true)
       ignoreDirs: ['tmp', '.nx', 'coverage'], // Optional, directories to ignore when scanning
@@ -298,7 +299,16 @@ export default defineConfig({
 
 **Configuration Options:**
 
-- **`workspaceRoot`** (optional) - Root directory to scan for `.fakepoints.ts` files. Defaults to `process.cwd()`.
+- **`workspaceRoot`** (optional) - Root directory to scan for fakepoints files. Defaults to `process.cwd()`.
+
+- **`filePattern`** (optional, default: `'.fakepoints.ts'`) - The file pattern to match when scanning for fakepoints files. This allows you to use a custom naming convention for your fakepoints files.
+  
+  **Examples:**
+  ```typescript
+  filePattern: '.fakes.ts'      // Match *.fakes.ts files
+  filePattern: '.test-data.ts'  // Match *.test-data.ts files
+  filePattern: '.fixtures.ts'   // Match *.fixtures.ts files
+  ```
 
 - **`watch`** (optional, default: `true`) - Enable file watching for fakepoints files. When enabled, adding, deleting, or changing fakepoints files will automatically trigger test reruns. Disable this if you experience performance issues with large workspaces.
 
@@ -307,13 +317,13 @@ export default defineConfig({
 - **`debug`** (optional, default: `false`) - Enable debug mode to see detailed logging about plugin operations including:
   - Watcher ignore patterns being configured
   - Virtual module loading
-  - Number of fakepoint files loaded
+  - Number of fakepoints files loaded
   - File watcher setup status
-  - All file system events for `.fakepoints.ts` files (add, change, unlink)
+  - All file system events for fakepoints files (add, change, unlink)
   
   Useful for troubleshooting issues with file discovery, watching, or test reruns.
 
-2. **Create `.fakepoints.ts` files** anywhere in your project:
+2. **Create fakepoints files** anywhere in your project (default pattern: `.fakepoints.ts`):
 
 ```typescript
 // src/users/user.fakepoints.ts
@@ -340,7 +350,7 @@ registerFakepoints(() => {
 
 ```typescript
 // tests-setup.ts
-import 'collected-fakepoints'; // Auto-imports all .fakepoints.ts files
+import 'collected-fakepoints'; // Auto-imports all fakepoints files
 import { runAllFakepoints } from '@test-effective/fakes';
 import { beforeAll } from 'vitest';
 

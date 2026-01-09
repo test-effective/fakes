@@ -12,7 +12,8 @@ describe('fakepoints-registry', () => {
   });
 
   describe('registerFakepoints', () => {
-    test('should register a fakepoint without return value', () => {
+    test(`GIVEN fakepoints without return value,
+THEN executes the fakepoints`, () => {
       let executed = false;
       registerFakepoints(() => {
         executed = true;
@@ -22,7 +23,8 @@ describe('fakepoints-registry', () => {
       expect(executed).toBe(true);
     });
 
-    test('should register a fakepoint with return value', () => {
+    test(`GIVEN fakepoints with return value,
+THEN collects the return value`, () => {
       registerFakepoints(() => {
         return 'test-value';
       });
@@ -31,7 +33,8 @@ describe('fakepoints-registry', () => {
       expect(results).toEqual(['test-value']);
     });
 
-    test('should register multiple fakepoints with different return types', () => {
+    test(`GIVEN multiple fakepoints with different return types,
+THEN collects all return values`, () => {
       registerFakepoints(() => 'string-value');
       registerFakepoints(() => 42);
       registerFakepoints(() => ({ key: 'value' }));
@@ -45,7 +48,8 @@ describe('fakepoints-registry', () => {
   });
 
   describe('runAllFakepoints', () => {
-    test('should execute all registered fakepoints in order', () => {
+    test(`GIVEN multiple registered fakepoints,
+THEN executes all fakepoints in registration order`, () => {
       const executionOrder: number[] = [];
 
       registerFakepoints(() => {
@@ -62,7 +66,8 @@ describe('fakepoints-registry', () => {
       expect(executionOrder).toEqual([1, 2, 3]);
     });
 
-    test('should return empty array when fakepoints return void', () => {
+    test(`GIVEN fakepoints that return void,
+THEN returns empty array`, () => {
       registerFakepoints(() => {
         console.log('test');
       });
@@ -71,7 +76,8 @@ describe('fakepoints-registry', () => {
       expect(results).toEqual([]);
     });
 
-    test('should collect return values from all fakepoints', () => {
+    test(`GIVEN fakepoints with return values,
+THEN collects all return values`, () => {
       registerFakepoints(() => 'first');
       registerFakepoints(() => 'second');
       registerFakepoints(() => 'third');
@@ -80,7 +86,8 @@ describe('fakepoints-registry', () => {
       expect(results).toEqual(['first', 'second', 'third']);
     });
 
-    test('should handle mixed void and non-void fakepoints', () => {
+    test(`GIVEN mixed void and non-void fakepoints,
+THEN collects only non-void return values`, () => {
       registerFakepoints(() => {
         // void return
       });
@@ -96,7 +103,8 @@ describe('fakepoints-registry', () => {
   });
 
   describe('collecting return values', () => {
-    test('should collect array results as-is', () => {
+    test(`GIVEN fakepoints that return arrays,
+THEN collects arrays as-is without flattening`, () => {
       registerFakepoints(() => ['a', 'b', 'c']);
       registerFakepoints(() => ['d', 'e']);
       registerFakepoints(() => ['f']);
@@ -106,7 +114,8 @@ describe('fakepoints-registry', () => {
       expect(results).toEqual([['a', 'b', 'c'], ['d', 'e'], ['f']]);
     });
 
-    test('should collect non-array return values', () => {
+    test(`GIVEN fakepoints that return objects,
+THEN collects all objects`, () => {
       registerFakepoints(() => ({ count: 3 }));
       registerFakepoints(() => ({ count: 5 }));
 
@@ -115,7 +124,8 @@ describe('fakepoints-registry', () => {
       expect(results).toEqual([{ count: 3 }, { count: 5 }]);
     });
 
-    test('should collect string values', () => {
+    test(`GIVEN fakepoints that return strings,
+THEN collects all strings`, () => {
       registerFakepoints(() => 'first');
       registerFakepoints(() => 'second');
       registerFakepoints(() => 'third');
@@ -125,7 +135,9 @@ describe('fakepoints-registry', () => {
       expect(results).toEqual(['first', 'second', 'third']);
     });
 
-    test('should handle user flattening arrays themselves', () => {
+    test(`GIVEN fakepoints that return arrays (e.g., Angular providers),
+WHEN user flattens results,
+THEN provides all items from all arrays`, () => {
       // Simulating Angular providers structure
       type Provider = { provide: string; useValue: unknown };
 
