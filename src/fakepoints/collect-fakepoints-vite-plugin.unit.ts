@@ -74,7 +74,14 @@ async function setup() {
   };
 }
 
-function getPlugin(testRoot: string, options?: { debug?: boolean }): Plugin {
+function getPlugin(
+  testRoot: string,
+  options?: {
+    debug?: boolean;
+    watch?: boolean;
+    ignoreDirs?: string[];
+  },
+): Plugin {
   const plugins = collectFakepointsPlugin({
     workspaceRoot: testRoot,
     ...options,
@@ -95,7 +102,7 @@ describe('collectFakepointsPlugin', () => {
       const plugin = getPlugin(testRoot);
       const result = await loadVirtualModule(plugin);
 
-      expect(result).toBeTruthy();
+      console.log('result', result);
       expect(result).toContain('// Auto-generated virtual module');
 
       // Should include valid fakepoint files
@@ -145,6 +152,59 @@ THEN handles gracefully`, async () => {
       expect(result).not.toContain("import '/");
     } finally {
       await rm(emptyRoot, { recursive: true, force: true });
+    }
+  });
+
+  test(`GIVEN ignoreDirs option,
+THEN excludes specified directories from collection`, async () => {
+    const { testRoot, cleanup } = await setup();
+    try {
+      // Configure to ignore 'tests' and 'utils' directories
+      const plugin = getPlugin(testRoot, { ignoreDirs: ['tests', 'utils'] });
+      const result = await loadVirtualModule(plugin);
+
+      expect(result).toBeTruthy();
+
+      // Should include files NOT in ignored directories
+      expect(result).toContain("import '/src/models/user.fakepoints.ts';");
+      expect(result).toContain("import '/src/models/post.fakepoints.ts';");
+
+      // Should NOT include files from custom ignored directories
+      expect(result).not.toContain("import '/tests/test.fakepoints.ts';");
+      expect(result).not.toContain("import '/src/utils/helper.fakepoints.ts';");
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test(`GIVEN ignoreDirs option,
+THEN config returns watcher ignore patterns (or undefined when not set)`, async () => {
+    const { testRoot, cleanup } = await setup();
+    try {
+      // Test WITH ignoreDirs - should return watcher ignore patterns
+      const pluginWithIgnore = getPlugin(testRoot, {
+        ignoreDirs: ['coverage', 'build', '.nx'],
+      });
+      const configWithIgnore = pluginWithIgnore.config as () => {
+        server: { watch: { ignored: string[] } };
+      };
+      const resultWithIgnore = configWithIgnore();
+
+      expect(resultWithIgnore).toBeDefined();
+      expect(resultWithIgnore.server.watch.ignored).toEqual([
+        '**/coverage/**',
+        '**/build/**',
+        '**/.nx/**',
+      ]);
+
+      // Test WITHOUT ignoreDirs - should return undefined
+      const pluginWithoutIgnore = getPlugin(testRoot);
+      const configWithoutIgnore = pluginWithoutIgnore.config as () => undefined;
+      const resultWithoutIgnore = configWithoutIgnore();
+
+      expect(resultWithoutIgnore).toBeUndefined();
+    } finally {
+      await cleanup();
     }
   });
 });

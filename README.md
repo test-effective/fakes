@@ -289,10 +289,29 @@ export default defineConfig({
     collectFakepointsPlugin({
       workspaceRoot: '../../your/project/root', // Optional, defaults to process.cwd()
       debug: false, // Optional, enables debug logging
+      watch: true, // Optional, enables file watching for auto test reruns (default: true)
+      ignoreDirs: ['tmp', '.nx', 'coverage'], // Optional, directories to ignore when scanning
     }),
   ],
 });
 ```
+
+**Configuration Options:**
+
+- **`workspaceRoot`** (optional) - Root directory to scan for `.fakepoints.ts` files. Defaults to `process.cwd()`.
+
+- **`watch`** (optional, default: `true`) - Enable file watching for fakepoints files. When enabled, adding, deleting, or changing fakepoints files will automatically trigger test reruns. Disable this if you experience performance issues with large workspaces.
+
+- **`ignoreDirs`** (optional) - Array of directory names to ignore when scanning for fakepoints files during initial collection. Note: Vite's watcher automatically ignores `.git`, `node_modules`, `test-results`, cache, and configured out directories. Common directories to add: `'tmp'`, `'.nx'`, `'coverage'`, `'build'`, `'out'`, `'dist'`, `'.cache'`.
+
+- **`debug`** (optional, default: `false`) - Enable debug mode to see detailed logging about plugin operations including:
+  - Watcher ignore patterns being configured
+  - Virtual module loading
+  - Number of fakepoint files loaded
+  - File watcher setup status
+  - All file system events for `.fakepoints.ts` files (add, change, unlink)
+  
+  Useful for troubleshooting issues with file discovery, watching, or test reruns.
 
 2. **Create `.fakepoints.ts` files** anywhere in your project:
 
