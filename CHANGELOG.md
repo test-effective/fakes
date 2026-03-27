@@ -1,5 +1,24 @@
 # @test-effective/fakes
 
+## 0.4.0
+
+### Minor Changes
+
+- ✨ add `rootsToScan` option (by [@shairez](https://github.com/shairez) in [#11](https://github.com/test-effective/fakes/pull/11))
+
+  This option allows you to specify the directories to scan for fakepoints files.
+  This is the most efficient option for monorepos or large workspaces because only listed directories are scanned.
+  You must provide `workspaceRoot` when using this option.
+
+  Example:
+
+  ```typescript
+  collectFakepointsPlugin({
+    workspaceRoot: '/absolute/path/to/your/project',
+    rootsToScan: ['libs/feature-a', 'libs/shared'],
+  });
+  ```
+
 ## 0.3.0
 
 ### Minor Changes
