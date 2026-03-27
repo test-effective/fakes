@@ -14,12 +14,24 @@ function createViteConfigContent(
   options: {
     watch?: boolean;
     filePattern?: string;
+    rootsToScan?: string[];
   } = {},
 ): string {
-  const optionsString = Object.entries(options)
+  const optionsToSerialize = { ...options };
+  if (optionsToSerialize.rootsToScan) {
+    optionsToSerialize.rootsToScan = optionsToSerialize.rootsToScan.map(root =>
+      root.replace(/\\/g, '/'),
+    );
+  }
+
+  const optionsString = Object.entries(optionsToSerialize)
     .map(([key, value]) => {
       if (typeof value === 'string') {
         return `${key}: '${value}'`;
+      }
+      if (Array.isArray(value)) {
+        const serialized = value.map(item => `'${item}'`).join(', ');
+        return `${key}: [${serialized}]`;
       }
       return `${key}: ${value}`;
     })
@@ -98,7 +110,7 @@ function findLog(logs: string[], ...textParts: string[]): string | undefined {
 
 describe('collectFakepointsPlugin E2E', () => {
   test(`GIVEN a Vite project with fakepoints files,
-THEN fakepoints are collected, registered, and can be executed`, async () => {
+				THEN fakepoints are collected, registered, and can be executed`, async () => {
     // Load vite config from demo-project directory
     const configFile = path.join(demoProjectRoot, 'vite.config.ts');
     const configResult = await loadConfigFromFile(
@@ -167,6 +179,7 @@ THEN fakepoints are collected, registered, and can be executed`, async () => {
       options: {
         watch?: boolean;
         filePattern?: string;
+        rootsToScan?: string[];
         captureConsole?: boolean;
       } = {},
     ) {
@@ -209,8 +222,8 @@ THEN fakepoints are collected, registered, and can be executed`, async () => {
     }
 
     test(`GIVEN a running server,
-WHEN a new fakepoints file is added,
-THEN it logs the event and triggers server restart`, async () => {
+					WHEN a new fakepoints file is added,
+					THEN it logs the event and triggers server restart`, async () => {
       const { testRoot, consoleLogs, restartCount, cleanup } =
         await setupWatchTestWorkspace({ captureConsole: true });
 
@@ -243,8 +256,8 @@ THEN it logs the event and triggers server restart`, async () => {
     }, 10000);
 
     test(`GIVEN a running server,
-WHEN a fakepoints file is deleted,
-THEN it logs the event and triggers server restart`, async () => {
+					WHEN a fakepoints file is deleted,
+					THEN it logs the event and triggers server restart`, async () => {
       const { testRoot, consoleLogs, restartCount, cleanup } =
         await setupWatchTestWorkspace({ captureConsole: true });
 
@@ -274,8 +287,8 @@ THEN it logs the event and triggers server restart`, async () => {
     }, 10000);
 
     test(`GIVEN watch disabled (watch: false),
-WHEN a new fakepoints file is added,
-THEN no restart is triggered`, async () => {
+					WHEN a new fakepoints file is added,
+					THEN no restart is triggered`, async () => {
       const { testRoot, restartCount, cleanup } = await setupWatchTestWorkspace(
         { watch: false },
       );
@@ -299,8 +312,8 @@ THEN no restart is triggered`, async () => {
     }, 10000);
 
     test(`GIVEN custom filePattern option,
-WHEN server starts,
-THEN only files matching custom pattern are collected`, async () => {
+					WHEN server starts,
+					THEN only files matching custom pattern are collected`, async () => {
       const { testRoot, server, cleanup } = await setupWatchTestWorkspace({
         filePattern: '.test-data.ts',
       });
@@ -324,6 +337,48 @@ THEN only files matching custom pattern are collected`, async () => {
         // We can't easily verify the imports without complex mocking,
         // but we've already tested this in unit tests
         // This integration test verifies the plugin loads with custom pattern
+      } finally {
+        await cleanup();
+      }
+    }, 10000);
+
+    test(`GIVEN rootsToScan configured to a specific folder,
+					WHEN fakepoints files exist both inside and outside that folder,
+					THEN only in-scope fakepoints are imported`, async () => {
+      const rootsToScan = ['src'];
+      const {
+        server,
+        testRoot: workspaceRoot,
+        consoleLogs,
+        cleanup,
+      } = await setupWatchTestWorkspace({
+        rootsToScan,
+        captureConsole: true,
+      });
+
+      try {
+        await writeFile(
+          path.join(workspaceRoot, 'src', 'in-scope.fakepoints.ts'),
+          "console.log('IN_SCOPE_FAKEPOINT');",
+        );
+
+        await mkdir(path.join(workspaceRoot, 'outside-scope'), {
+          recursive: true,
+        });
+        await writeFile(
+          path.join(
+            workspaceRoot,
+            'outside-scope',
+            'out-of-scope.fakepoints.ts',
+          ),
+          "console.log('OUT_OF_SCOPE_FAKEPOINT');",
+        );
+
+        await waitForFileSystem();
+        await server.ssrLoadModule('collected-fakepoints');
+
+        expect(consoleLogs).toContain('IN_SCOPE_FAKEPOINT');
+        expect(consoleLogs).not.toContain('OUT_OF_SCOPE_FAKEPOINT');
       } finally {
         await cleanup();
       }

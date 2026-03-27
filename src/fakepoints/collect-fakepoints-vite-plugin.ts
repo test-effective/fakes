@@ -4,7 +4,15 @@ import type { Plugin } from 'vite';
 
 export type CollectFakepointsPluginOptions = {
   /**
-   * The root directory to search for fakepoints files.
+   * Directories to scan for fakepoints files.
+   * Values can be absolute paths, or relative to workspaceRoot.
+   * When provided, only these directories are scanned.
+   *
+   * Note: workspaceRoot is required when rootsToScan is provided.
+   */
+  rootsToScan?: string[];
+  /**
+   * The root directory (absolute path) to search for fakepoints files.
    * Defaults to process.cwd()
    */
   workspaceRoot?: string;
@@ -57,11 +65,20 @@ export function collectFakepointsPlugin(
 ): Plugin[] {
   const VIRTUAL_MODULE_ID = 'collected-fakepoints';
   const RESOLVED_VIRTUAL_MODULE_ID = '\0' + VIRTUAL_MODULE_ID;
-  const workspaceRoot = options.workspaceRoot || process.cwd();
+  const rootsToScanOption = options.rootsToScan;
+  const workspaceRootOption = options.workspaceRoot;
   const debug = options.debug ?? false;
   const watch = options.watch ?? true;
   const ignoreDirs = new Set(options.ignoreDirs || []);
   const filePattern = options.filePattern ?? '.fakepoints.ts';
+  const cwd = process.cwd();
+  const scanConfig = resolveScanConfig(
+    rootsToScanOption,
+    workspaceRootOption,
+    cwd,
+  );
+  const rootsToScan = scanConfig.rootsToScan;
+  const workspaceRoot = scanConfig.workspaceRoot;
 
   return [
     // Pre plugin: Handle virtual module registration
@@ -104,22 +121,24 @@ export function collectFakepointsPlugin(
           if (debug) {
             console.log(`🔄 Loading virtual module ${VIRTUAL_MODULE_ID}`);
           }
-          // Find all fakepoints files in the workspace
-          const fakepointFiles = await findFakepointFiles(
-            workspaceRoot,
+          // Find all fakepoints files across configured roots
+          const fakepointFiles = await findFakepointFilesForRoots(
+            rootsToScan,
             ignoreDirs,
             filePattern,
           );
 
-          // Generate import statements for all fakepoints files using direct file paths
+          // Generate import statements for all fakepoints files using project-root relative paths when possible
+          const importBaseDir = workspaceRoot;
           const imports = fakepointFiles.map(file => {
-            const relativePath = path.posix.join('/', file);
-            return `import '${relativePath}';`;
+            const importPath = toImportPath(file, importBaseDir);
+            return `import '${importPath}';`;
           });
 
           if (imports.length === 0) {
-            console.warn(`� No fakepoints files (${filePattern}) found in ${workspaceRoot}
-You may need to configure the workspaceRoot or filePattern in your vite.config.ts file.`);
+            const rootsDescription = rootsToScan.join(', ');
+            console.warn(`No fakepoints files (${filePattern}) found in configured roots: ${rootsDescription}
+You may need to configure rootsToScan, workspaceRoot, or filePattern in your vite.config.ts file.`);
           }
 
           // Return the virtual module content that imports all fakepoints files
@@ -144,29 +163,22 @@ ${debug ? `console.log('Loaded ${imports.length} fakepoints file(s)');` : ''}
           return;
         }
 
-        // Find all fakepoints files and find their absolute paths (required for the watch to work)
-        const fakepointFiles = await findFakepointFiles(
-          workspaceRoot,
+        // Find all fakepoints files absolute paths (required for watcher setup)
+        const absoluteFakepointPaths = await findFakepointFilesForRoots(
+          rootsToScan,
           ignoreDirs,
           filePattern,
-        );
-        const absoluteFakepointPaths = fakepointFiles.map(file =>
-          path.resolve(workspaceRoot, file),
         );
 
         // Explicitly add fakepoints files to watcher
         server.watcher.add(absoluteFakepointPaths);
 
-        // Watch the entire workspace root for new fakepoints files
-        // This ensures 'add' events fire even for fakepoints in new directories
-        const absoluteWorkspaceRoot = path.resolve(workspaceRoot);
-
-        // Add workspace root to watcher
+        // Watch configured roots for new fakepoints files
         // Note: Vite's watcher is pre-configured with ignore patterns at initialization:
         // - **/.git/**, **/node_modules/**, **/test-results/**
         // - Cache dir, out dirs, and anything in .gitignore
         // These patterns are automatically applied to all watched paths
-        server.watcher.add([absoluteWorkspaceRoot]);
+        server.watcher.add(rootsToScan);
 
         // Watch for ALL events to debug
         if (debug) {
@@ -266,4 +278,80 @@ async function findFakepointFiles(
 
   await walk(rootDir);
   return fakepointFiles;
+}
+
+async function findFakepointFilesForRoots(
+  rootsToScan: string[],
+  ignoreDirs: Set<string>,
+  filePattern: string,
+): Promise<string[]> {
+  const allFiles = await Promise.all(
+    rootsToScan.map(root => findFakepointFiles(root, ignoreDirs, filePattern)),
+  );
+  const dedupedAbsoluteFiles = new Set<string>();
+
+  for (let index = 0; index < rootsToScan.length; index++) {
+    const root = rootsToScan[index];
+    const filesInRoot = allFiles[index] ?? [];
+    for (const relativeFile of filesInRoot) {
+      dedupedAbsoluteFiles.add(path.resolve(root, relativeFile));
+    }
+  }
+
+  return [...dedupedAbsoluteFiles].sort();
+}
+
+function resolveScanConfig(
+  rootsToScan: string[] | undefined,
+  workspaceRoot: string | undefined,
+  cwd: string,
+): { rootsToScan: string[]; workspaceRoot: string } {
+  if (rootsToScan && rootsToScan.length > 0) {
+    if (!workspaceRoot) {
+      throw new Error(
+        '"workspaceRoot" is required when "rootsToScan" is provided.',
+      );
+    }
+
+    if (!path.isAbsolute(workspaceRoot)) {
+      throw new Error(
+        `"workspaceRoot" must be an absolute path when used with "rootsToScan". Received "${workspaceRoot}".`,
+      );
+    }
+
+    const resolvedRoots = rootsToScan.map(root =>
+      path.isAbsolute(root) ? root : path.resolve(workspaceRoot, root),
+    );
+    return {
+      rootsToScan: [...new Set(resolvedRoots)],
+      workspaceRoot,
+    };
+  }
+
+  if (workspaceRoot) {
+    if (!path.isAbsolute(workspaceRoot)) {
+      console.warn(
+        `"workspaceRoot" must be an absolute path. Received "${workspaceRoot}". Falling back to process.cwd().`,
+      );
+      return { rootsToScan: [cwd], workspaceRoot: cwd };
+    }
+    return { rootsToScan: [workspaceRoot], workspaceRoot };
+  }
+
+  return { rootsToScan: [cwd], workspaceRoot: cwd };
+}
+
+function toImportPath(absoluteFilePath: string, importBaseDir: string): string {
+  const relativePath = path.relative(importBaseDir, absoluteFilePath);
+  const normalizedAbsolutePath = absoluteFilePath.replace(/\\/g, '/');
+
+  if (
+    relativePath &&
+    !relativePath.startsWith('..') &&
+    !path.isAbsolute(relativePath)
+  ) {
+    return path.posix.join('/', relativePath.replace(/\\/g, '/'));
+  }
+
+  return `/@fs/${normalizedAbsolutePath}`;
 }

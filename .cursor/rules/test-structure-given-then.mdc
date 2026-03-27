@@ -1,0 +1,58 @@
+---
+description: Test structure and multiline GIVEN/WHEN/THEN title conventions
+globs: **/*.{test,spec,unit}.{ts,tsx,js,jsx}
+alwaysApply: false
+---
+
+# Test Structure
+
+When writing or editing tests in this project:
+
+- Follow `GIVEN` / `THEN` style for test descriptions, with optional `WHEN` for meaningful actions or transitions.
+- Keep one clear behavior expectation per test.
+- Keep setup, execution, and assertions logically grouped without requiring explicit AAA comments.
+- Keep comments minimal and only where they improve readability.
+
+## Multiline Test Titles
+
+For multiline test titles:
+
+- Use `GIVEN` on the first line.
+- Optionally use `WHEN` on a dedicated middle line when it adds important context.
+- Place `THEN` on the next line (or after `WHEN` when present).
+- Indent `WHEN` and `THEN` lines with tabs so they visually align with the start column of `GIVEN` (or very close).
+- If the test is inside nested `describe(...)` blocks, add **one extra tab** per nesting level to the `WHEN`/`THEN` indentation (so deeper suites visually offset further).
+- Preserve this alignment style when modifying existing tests.
+
+## Example: Preferred
+
+```typescript
+test(`GIVEN some precondition,
+				WHEN a unique action happens,
+				THEN it behaves as expected`, async () => {
+  // ...
+});
+```
+
+## Example: Nested describes
+
+```typescript
+describe('outer', () => {
+  describe('inner', () => {
+    test(`GIVEN some precondition,
+					WHEN a unique action happens,
+					THEN it behaves as expected`, async () => {
+      // ...
+    });
+  });
+});
+```
+
+## Example: Avoid
+
+```typescript
+test(`GIVEN some precondition,
+THEN it behaves as expected`, async () => {
+  // ...
+});
+```
