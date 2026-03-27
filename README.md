@@ -1,10 +1,8 @@
 <div align="center">
 <h1>Test Effective Fakes</h1>
 
-
-
-
 **Fake Server Utils for UI Component Tests** 🎭
+
 </div>
 
 A powerful testing utility library designed to simplify creating and managing a fake server layer for UI component tests.
@@ -14,16 +12,19 @@ A powerful testing utility library designed to simplify creating and managing a 
 ## What's a fake server layer?
 
 A fake server layer needs two things to successfully simulate a real server:
+
 1. A way to store and manipulate **data** the same way the real server would.
 2. A way to react to **http requests** the way a real server would.
 
 Test Effective Fakes provides two powerful features to help you create and manage a fake server layer:
 
 ### Faketories
+
 A util on top of [MSW Data](https://github.com/mswjs/data) for making it easier to seed or generate fake test data with automatic partial merging, relational seeding and more.
 
 ### Fakepoints
-Auto-discovery system for organizing test setup code. Instead of manually importing MSW handlers across test files, fakepoints automatically discover and register your fake endpoints at a predictable time. 
+
+Auto-discovery system for organizing test setup code. Instead of manually importing MSW handlers across test files, fakepoints automatically discover and register your fake endpoints at a predictable time.
 
 ## Table of Contents
 
@@ -76,9 +77,9 @@ Faketories are factories for generating fake test data.
 Basically, "factories of fakes"... "Faketories"... yeah, we know, great pun 😅.
 
 They provide four methods:
+
 - `generateOne()` / `generateMany()` - Generate standalone entities (not stored in DB)
 - `seedOne()` / `seedMany()` - Generate and store entities in your MSW Data collection
-
 
 ### 1.1 Create a Faketory
 
@@ -106,9 +107,10 @@ const userFaketory = createFaketory(
     return {
       id: faker.string.uuid(),
       email: faker.internet.email(),
-      name: faker.person.fullName()
+      name: faker.person.fullName(),
     };
-});
+  },
+);
 
 // Use it in tests
 const user = await userFaketory.seedOne({ email: 'test@example.com' });
@@ -118,14 +120,14 @@ const users = userFaketory.store.findMany();
 ```
 
 **Props available in your faketory function:**
+
 - `seedingMode` - is 'true' when called with one of the seeding methods.
 - `index` - when creating many entities, this is the index of the entity being created.
 - `partial` - Override default values created by the faketory function
 
+  **Auto-Merge Magic ✨**
 
- **Auto-Merge Magic ✨**
-
-Partial data is **automatically merged** with defaults so you don't need to spread `...partial` in the end of your faketory function. 
+Partial data is **automatically merged** with defaults so you don't need to spread `...partial` in the end of your faketory function.
 
 ### 1.2 The `generateOne()` Method
 
@@ -202,11 +204,11 @@ const users = await userFaketory.seedMany(5, [
 
 ### 1.6 Direct Store Access
 
-Need to query or update your fake data? No problem! 
+Need to query or update your fake data? No problem!
 
 Access the MSW Data collection directly via the `store` property.
 
-**Why "store" and not "collection"?** 
+**Why "store" and not "collection"?**
 
 Honestly? Because `store` is shorter than `collection` 😊
 
@@ -217,8 +219,8 @@ Under the hood, `store` is the MSW Data `Collection` instance, giving you full a
 const allUsers = userFaketory.store.findMany();
 
 // Find specific user
-const user = userFaketory.store.findFirst(q => 
-  q.where({ email: 'test@example.com' })
+const user = userFaketory.store.findFirst(q =>
+  q.where({ email: 'test@example.com' }),
 );
 
 // Update user
@@ -238,13 +240,11 @@ Sometimes you need to hit the reset button (we've all been there):
 ```typescript
 // Reset a single faketory
 userFaketory.reset();
-
 ```
 
 ### 1.8 ⚠️ IMPORTANT: Preventing Stale Data
 
-**Always call `resetAllFaketories()` in a global `beforeEach` hook** to prevent stale data from previous tests. Without this, entities created in one test can leak into subsequent tests, causing flaky and unpredictable test failures. 
-
+**Always call `resetAllFaketories()` in a global `beforeEach` hook** to prevent stale data from previous tests. Without this, entities created in one test can leak into subsequent tests, causing flaky and unpredictable test failures.
 
 ```typescript
 // tests-setup.ts
@@ -258,22 +258,20 @@ beforeEach(() => {
 
 <br/><br/>
 
-
 ## 2. Fakepoints
 
 Fakepoints (Fake Endpoints, we're very creative with naming here 🎯) are registration points for setting up the fake remote endpoints layer for your tests.
 
 Instead of manually importing MSW handlers across your test files, fakepoints auto-discover them and let you set them up at a predictable time.
 
-
 ### 2.1 How It Works
-
 
 1. You create `.fakepoints.ts` files (or use a custom pattern via the `filePattern` option) and use the `registerFakepoints()` function to register your fake endpoints.
 2. The Vite plugin scans your workspace for all matching files and creates a virtual module `collected-fakepoints` that imports them all.
 3. When you call `runAllFakepoints()`, all registered functions run.
 
 **Use cases:**
+
 - Registering MSW handlers
 - Replacing remote services with fake ones
 
@@ -287,7 +285,8 @@ import { collectFakepointsPlugin } from '@test-effective/fakes';
 export default defineConfig({
   plugins: [
     collectFakepointsPlugin({
-      workspaceRoot: '../../your/project/root', // Optional, defaults to process.cwd()
+      workspaceRoot: '/absolute/path/to/your/project', // Optional, must be absolute when provided
+      rootsToScan: ['libs/feature-a', 'libs/shared'], // Optional, absolute or relative to workspaceRoot
       filePattern: '.fakepoints.ts', // Optional, file pattern to match (default: '.fakepoints.ts')
       debug: false, // Optional, enables debug logging
       watch: true, // Optional, enables file watching for auto test reruns (default: true)
@@ -299,15 +298,20 @@ export default defineConfig({
 
 **Configuration Options:**
 
-- **`workspaceRoot`** (optional) - Root directory to scan for fakepoints files. Defaults to `process.cwd()`.
+- **`rootsToScan`** (optional) - Directory paths to scan for fakepoints files. Paths can be absolute, or relative to `workspaceRoot`. This is the most efficient option for monorepos or large workspaces because only listed directories are scanned.
+
+- **`workspaceRoot`** (optional) - Absolute root directory to scan for fakepoints files. Defaults to `process.cwd()` when `rootsToScan` is not provided.
+
+  If `rootsToScan` is provided, `workspaceRoot` is required and is used as the base directory for relative `rootsToScan` entries.
 
 - **`filePattern`** (optional, default: `'.fakepoints.ts'`) - The file pattern to match when scanning for fakepoints files. This allows you to use a custom naming convention for your fakepoints files.
-  
+
   **Examples:**
+
   ```typescript
-  filePattern: '.fakes.ts'      // Match *.fakes.ts files
-  filePattern: '.test-data.ts'  // Match *.test-data.ts files
-  filePattern: '.fixtures.ts'   // Match *.fixtures.ts files
+  filePattern: '.fakes.ts'; // Match *.fakes.ts files
+  filePattern: '.test-data.ts'; // Match *.test-data.ts files
+  filePattern: '.fixtures.ts'; // Match *.fixtures.ts files
   ```
 
 - **`watch`** (optional, default: `true`) - Enable file watching for fakepoints files. When enabled, adding, deleting, or changing fakepoints files will automatically trigger test reruns. Disable this if you experience performance issues with large workspaces.
@@ -320,7 +324,7 @@ export default defineConfig({
   - Number of fakepoints files loaded
   - File watcher setup status
   - All file system events for fakepoints files (add, change, unlink)
-  
+
   Useful for troubleshooting issues with file discovery, watching, or test reruns.
 
 2. **Create fakepoints files** anywhere in your project (default pattern: `.fakepoints.ts`):
@@ -392,6 +396,7 @@ type ModuleInfo = { module: string; handlers: number };
 const modules = runAllFakepoints<ModuleInfo>();
 // Result: [{ module: 'users', handlers: 3 }, { module: 'posts', handlers: 2 }]
 ```
+
 ## Contributing
 
 Want to contribute? Yayy! 🎉

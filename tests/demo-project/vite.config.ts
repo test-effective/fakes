@@ -10,6 +10,7 @@ export default defineConfig({
   plugins: [
     collectFakepointsPlugin({
       workspaceRoot: __dirname,
+      rootsToScan: ['src'],
     }),
   ],
 });

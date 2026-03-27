@@ -1,7 +1,7 @@
 import { mkdir, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import type { Plugin } from 'vite';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { collectFakepointsPlugin } from './collect-fakepoints-vite-plugin.js';
 
 const VIRTUAL_MODULE_ID = 'collected-fakepoints';
@@ -31,7 +31,7 @@ async function setup() {
   await writeFile(
     path.join(testRoot, 'src', 'models', 'post.fakepoints.ts'),
     'export const postfakepoints = {};',
-  );
+  ) /*  */;
   await writeFile(
     path.join(testRoot, 'src', 'utils', 'helper.fakepoints.ts'),
     'export const helperfakepoints = {};',
@@ -86,15 +86,11 @@ async function setup() {
 
 function getPlugin(
   testRoot: string,
-  options?: {
-    debug?: boolean;
-    watch?: boolean;
-    ignoreDirs?: string[];
-    filePattern?: string;
-  },
+  options?: Parameters<typeof collectFakepointsPlugin>[0],
 ): Plugin {
+  const baseOptions = options?.workspaceRoot ? {} : { workspaceRoot: testRoot };
   const plugins = collectFakepointsPlugin({
-    workspaceRoot: testRoot,
+    ...baseOptions,
     ...options,
   });
   return plugins[0];
@@ -107,7 +103,7 @@ async function loadVirtualModule(plugin: Plugin): Promise<string | null> {
 
 describe('collectFakepointsPlugin', () => {
   test(`GIVEN fakepoints files in workspace,
-           THEN generates imports for all valid files and excludes ignored directories`, async () => {
+				THEN generates imports for all valid files and excludes ignored directories`, async () => {
     const { testRoot, cleanup } = await setup();
     try {
       const plugin = getPlugin(testRoot);
@@ -134,7 +130,7 @@ describe('collectFakepointsPlugin', () => {
   });
 
   test(`GIVEN debug mode enabled,
-THEN includes console log statements in output`, async () => {
+				THEN includes console log statements in output`, async () => {
     const { testRoot, cleanup } = await setup();
     try {
       const plugin = getPlugin(testRoot, { debug: true });
@@ -148,7 +144,7 @@ THEN includes console log statements in output`, async () => {
   });
 
   test(`GIVEN empty workspace with no fakepoints files,
-THEN handles gracefully`, async () => {
+				THEN handles gracefully`, async () => {
     const emptyRoot = path.join(process.cwd(), 'tmp-test-empty');
     await mkdir(emptyRoot, { recursive: true });
 
@@ -166,7 +162,7 @@ THEN handles gracefully`, async () => {
   });
 
   test(`GIVEN ignoreDirs option,
-THEN excludes specified directories from collection`, async () => {
+				THEN excludes specified directories from collection`, async () => {
     const { testRoot, cleanup } = await setup();
     try {
       // Configure to ignore 'tests' and 'utils' directories
@@ -188,7 +184,7 @@ THEN excludes specified directories from collection`, async () => {
   });
 
   test(`GIVEN ignoreDirs option,
-THEN config returns watcher ignore patterns (or undefined when not set)`, async () => {
+				THEN config returns watcher ignore patterns (or undefined when not set)`, async () => {
     const { testRoot, cleanup } = await setup();
     try {
       // Test WITH ignoreDirs - should return watcher ignore patterns
@@ -219,7 +215,7 @@ THEN config returns watcher ignore patterns (or undefined when not set)`, async 
   });
 
   test(`GIVEN custom filePattern option,
-THEN collects only files matching the custom pattern`, async () => {
+				THEN collects only files matching the custom pattern`, async () => {
     const { testRoot, cleanup } = await setup();
     try {
       // Configure to use custom file pattern
@@ -245,7 +241,7 @@ THEN collects only files matching the custom pattern`, async () => {
   });
 
   test(`GIVEN default configuration (no filePattern),
-THEN uses .fakepoints.ts as default pattern`, async () => {
+				THEN uses .fakepoints.ts as default pattern`, async () => {
     const { testRoot, cleanup } = await setup();
     try {
       const plugin = getPlugin(testRoot);
@@ -263,6 +259,114 @@ THEN uses .fakepoints.ts as default pattern`, async () => {
       expect(result).not.toContain('test-data.ts');
     } finally {
       await cleanup();
+    }
+  });
+
+  test(`GIVEN rootsToScan configured,
+				THEN only fakepoints from those roots are collected`, async () => {
+    const { testRoot, cleanup } = await setup();
+    try {
+      const plugin = getPlugin(testRoot, {
+        workspaceRoot: testRoot,
+        rootsToScan: ['src/models'],
+      });
+      const result = await loadVirtualModule(plugin);
+
+      expect(result).toContain("import '/src/models/user.fakepoints.ts';");
+      expect(result).toContain("import '/src/models/post.fakepoints.ts';");
+      expect(result).not.toContain('helper.fakepoints.ts');
+      expect(result).not.toContain('tests/test.fakepoints.ts');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test(`GIVEN rootsToScan has relative entries and workspaceRoot,
+				THEN relative roots are resolved from workspaceRoot`, async () => {
+    const { testRoot, cleanup } = await setup();
+
+    try {
+      const plugin = getPlugin(testRoot, {
+        workspaceRoot: testRoot,
+        rootsToScan: ['tests'],
+      });
+      const result = await loadVirtualModule(plugin);
+
+      expect(result).toContain("import '/tests/test.fakepoints.ts';");
+      expect(result).not.toContain('user.fakepoints.ts');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test(`GIVEN rootsToScan includes an absolute path outside workspaceRoot,
+				THEN imports use /@fs paths for out-of-workspace files`, async () => {
+    const { testRoot, cleanup } = await setup();
+    const externalRoot = path.join(
+      process.cwd(),
+      'tmp-test-external-fakepoints',
+    );
+    await mkdir(externalRoot, { recursive: true });
+    await writeFile(
+      path.join(externalRoot, 'external.fakepoints.ts'),
+      'export const externalfakepoints = {};',
+    );
+
+    try {
+      const plugin = getPlugin(testRoot, {
+        workspaceRoot: testRoot,
+        rootsToScan: [externalRoot],
+      });
+      const result = await loadVirtualModule(plugin);
+
+      const normalizedExternalFile = path
+        .join(externalRoot, 'external.fakepoints.ts')
+        .replace(/\\/g, '/');
+      expect(result).toContain(`import '/@fs/${normalizedExternalFile}';`);
+    } finally {
+      await rm(externalRoot, { recursive: true, force: true });
+      await cleanup();
+    }
+  });
+
+  test(`GIVEN rootsToScan is provided without workspaceRoot,
+				THEN plugin initialization throws`, () => {
+    expect(() =>
+      collectFakepointsPlugin({
+        rootsToScan: ['src'],
+      }),
+    ).toThrow('"workspaceRoot" is required when "rootsToScan" is provided.');
+  });
+
+  test(`GIVEN rootsToScan is provided with non-absolute workspaceRoot,
+				THEN plugin initialization throws`, () => {
+    expect(() =>
+      collectFakepointsPlugin({
+        workspaceRoot: 'relative-root',
+        rootsToScan: ['src'],
+      }),
+    ).toThrow(
+      '"workspaceRoot" must be an absolute path when used with "rootsToScan". Received "relative-root".',
+    );
+  });
+
+  test(`GIVEN workspaceRoot is not absolute,
+				THEN warns and falls back to process.cwd()`, async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      const plugins = collectFakepointsPlugin({
+        workspaceRoot: 'relative/path',
+      });
+      const plugin = plugins[0];
+      const result = await loadVirtualModule(plugin);
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        '"workspaceRoot" must be an absolute path. Received "relative/path". Falling back to process.cwd().',
+      );
+      expect(result).toContain('// Auto-generated virtual module');
+    } finally {
+      warnSpy.mockRestore();
     }
   });
 });
