@@ -43,6 +43,7 @@ Auto-discovery system for organizing test setup code. Instead of manually import
   - [2.1 How It Works](#21-how-it-works)
   - [2.2 Setup](#22-setup)
   - [2.3 Collecting Values from Fakepoints](#23-collecting-values-from-fakepoints)
+  - [2.4 Resetting Fakepoints State](#24-resetting-fakepoints-state)
 
 - [Contributing](#contributing)
 - [Code Of Conduct](#code-of-conduct)
@@ -396,6 +397,47 @@ type ModuleInfo = { module: string; handlers: number };
 const modules = runAllFakepoints<ModuleInfo>();
 // Result: [{ module: 'users', handlers: 3 }, { module: 'posts', handlers: 2 }]
 ```
+
+### 2.4 Resetting Fakepoints State
+
+A fakepoints file often keeps state next to its fake, like a queued failure or a seeded response. Register a reset for it, and call `resetAllFakepoints()` in a global `beforeEach`, next to `resetAllFaketories()`:
+
+```typescript
+// src/users/user.fakepoints.ts
+import { registerFakepoints } from '@test-effective/fakes';
+
+const failingMethods = new Set<string>();
+
+export function failNextCall(method: string) {
+  failingMethods.add(method);
+}
+
+registerFakepoints(() => [{ provide: UserApi, useClass: FakeUserApi }], {
+  reset: () => failingMethods.clear(),
+});
+```
+
+```typescript
+// tests-setup.ts
+import { resetAllFakepoints, resetAllFaketories } from '@test-effective/fakes';
+import { beforeEach } from 'vitest';
+
+beforeEach(() => {
+  resetAllFaketories();
+  resetAllFakepoints(); // Runs every registered fakepoints reset
+});
+```
+
+A file that keeps state but registers no fakepoints can use `registerFakepointsReset()` instead:
+
+```typescript
+import { registerFakepointsReset } from '@test-effective/fakes';
+
+registerFakepointsReset(() => failingMethods.clear());
+```
+
+> **Why not a top-level `afterEach` in the fakepoints file?**
+> With `isolate: false`, `collected-fakepoints` evaluates each fakepoints file once per worker, inside whichever test file loads it first. A top-level `afterEach` attaches only to that file, so the state leaks into every later test file on the same worker. `resetAllFakepoints()` in a setup file runs for every test file, with or without `isolate`.
 
 ## Contributing
 
