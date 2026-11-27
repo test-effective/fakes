@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, test } from 'vitest';
 import {
   clearAllFakepoints,
   registerFakepoints,
+  registerFakepointsReset,
+  resetAllFakepoints,
   runAllFakepoints,
 } from './fakepoints-registry.js';
 
@@ -166,6 +168,71 @@ THEN provides all items from all arrays`, () => {
         'AuthService',
         'DataService',
       ]);
+    });
+  });
+
+  describe('resetAllFakepoints', () => {
+    test(`GIVEN registered resets,
+THEN runs all of them in registration order`, () => {
+      const resetOrder: number[] = [];
+
+      registerFakepointsReset(() => {
+        resetOrder.push(1);
+      });
+      registerFakepointsReset(() => {
+        resetOrder.push(2);
+      });
+
+      resetAllFakepoints();
+      expect(resetOrder).toEqual([1, 2]);
+    });
+
+    test(`GIVEN fakepoints registered with a reset option,
+THEN runs the reset but not the fakepoints`, () => {
+      let executed = false;
+      let resetCount = 0;
+
+      registerFakepoints(
+        () => {
+          executed = true;
+        },
+        { reset: () => resetCount++ },
+      );
+
+      resetAllFakepoints();
+      expect(resetCount).toBe(1);
+      expect(executed).toBe(false);
+    });
+
+    test(`GIVEN fakepoints registered with a reset option,
+WHEN running all fakepoints,
+THEN does not run the reset`, () => {
+      let resetCount = 0;
+
+      registerFakepoints(() => 'value', { reset: () => resetCount++ });
+
+      expect(runAllFakepoints<string>()).toEqual(['value']);
+      expect(resetCount).toBe(0);
+    });
+  });
+
+  describe('clearAllFakepoints', () => {
+    test(`GIVEN registered fakepoints and resets,
+THEN clears both`, () => {
+      let executed = false;
+      let resetCount = 0;
+
+      registerFakepoints(() => {
+        executed = true;
+      });
+      registerFakepointsReset(() => resetCount++);
+
+      clearAllFakepoints();
+      runAllFakepoints();
+      resetAllFakepoints();
+
+      expect(executed).toBe(false);
+      expect(resetCount).toBe(0);
     });
   });
 });
